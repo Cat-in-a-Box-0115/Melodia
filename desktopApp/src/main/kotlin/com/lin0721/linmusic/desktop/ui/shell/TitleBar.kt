@@ -90,14 +90,17 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.desktop.app.isMac
 import com.lin0721.linmusic.desktop.data.download.DownloadTask
 import com.lin0721.linmusic.desktop.data.download.DownloadTaskStatus
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
@@ -122,6 +125,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlin.math.roundToInt
 
 private val CloseHover = Color(0xFFE81123)
+
+// 系统红绿灯三个按钮连同左右边距的宽度，单位为系统逻辑点
+private const val MAC_TRAFFIC_LIGHTS_INSET_PT = 80f
+
+// 界面缩放会改变 dp 换算，红绿灯却保持原生尺寸：按窗口实际缩放把逻辑点换算回 dp
+@Composable
+private fun WindowScope.macTrafficLightsInset(): Dp {
+    val screenScale = window.graphicsConfiguration?.defaultTransform?.scaleX?.toFloat() ?: 1f
+    return (MAC_TRAFFIC_LIGHTS_INSET_PT * screenScale / LocalDensity.current.density).dp
+}
 
 private const val CHECK_SHOW_MS = 1_500L
 private const val FILL_ANIMATION_MS = 200
@@ -188,7 +201,8 @@ fun WindowScope.TitleBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                Modifier.padding(start = 12.dp),
+                // macOS 左上角为系统红绿灯让出位置
+                Modifier.padding(start = if (isMac) macTrafficLightsInset() else 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NavArrow(Icons.AutoMirrored.Rounded.ArrowBackIos, "后退", canGoBack, onBack)
@@ -227,13 +241,18 @@ fun WindowScope.TitleBar(
                 CloudUploadsButton(cloudMusic)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
                 AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)
-                WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
-                WindowButton(
-                    if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
-                    if (isMaximized) "还原" else "最大化",
-                    onClick = onToggleMaximize
-                )
-                WindowButton(Icons.Rounded.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
+                // macOS 由系统红绿灯负责最小化、缩放与关闭
+                if (isMac) {
+                    Spacer(Modifier.width(12.dp))
+                } else {
+                    WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
+                    WindowButton(
+                        if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
+                        if (isMaximized) "还原" else "最大化",
+                        onClick = onToggleMaximize
+                    )
+                    WindowButton(Icons.Rounded.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
+                }
             }
         }
     }

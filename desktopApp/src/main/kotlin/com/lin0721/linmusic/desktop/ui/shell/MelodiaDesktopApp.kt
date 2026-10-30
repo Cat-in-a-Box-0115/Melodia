@@ -44,6 +44,7 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
+import com.lin0721.linmusic.desktop.app.isMac
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
@@ -202,7 +203,8 @@ fun WindowScope.MelodiaDesktopApp(
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)) { data ->
                 Snackbar(data, containerColor = DesktopColors.PopupSurface, contentColor = DesktopColors.TextPrimary)
             }
-            WindowResizeHandles(enabled = !isMaximized && !isFullscreen)
+            // macOS 使用系统窗口，由系统负责边缘缩放
+            WindowResizeHandles(enabled = !isMac && !isMaximized && !isFullscreen)
         }
         // 弹窗内的歌曲菜单依赖导航器，须放在 Provider 内
         if (state.showRecognition) {
