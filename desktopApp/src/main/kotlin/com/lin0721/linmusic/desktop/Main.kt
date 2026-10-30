@@ -57,6 +57,7 @@ import com.lin0721.linmusic.desktop.app.RenderSessionGuard
 import com.lin0721.linmusic.desktop.app.applyRenderBackend
 import com.lin0721.linmusic.desktop.app.scaledMinWindowSize
 import com.lin0721.linmusic.desktop.app.MacAppEvents
+import com.lin0721.linmusic.desktop.app.isMac
 import com.lin0721.linmusic.desktop.app.SingleInstance
 import com.lin0721.linmusic.desktop.app.WindowBounds
 import com.lin0721.linmusic.desktop.app.currentScreenBounds
@@ -467,7 +468,8 @@ fun main() {
             state = windowState,
             title = "Melodia",
             icon = appIcon,
-            undecorated = true,
+            // macOS 保留系统窗口以使用红绿灯按钮，标题栏改为透明并让内容铺满
+            undecorated = !isMac,
             onPreviewKeyEvent = { event ->
                 if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
                     // 先收起全屏歌词；其后才轮到退出窗口全屏
@@ -489,6 +491,15 @@ fun main() {
                 }
             }
         ) {
+            if (isMac) {
+                remember(window) {
+                    window.rootPane.apply {
+                        putClientProperty("apple.awt.fullWindowContent", true)
+                        putClientProperty("apple.awt.transparentTitleBar", true)
+                        putClientProperty("apple.awt.windowTitleVisible", false)
+                    }
+                }
+            }
             LaunchedEffect(uiScaleFactor) {
                 val screen = window.graphicsConfiguration?.bounds
                 val (minWidth, minHeight) = scaledMinWindowSize(uiScaleFactor, screen?.width ?: 0, screen?.height ?: 0)
