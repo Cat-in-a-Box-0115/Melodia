@@ -5,7 +5,7 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.NativeLibrary
 
-// 签名对照 native-src/nowplaying/nowplaying.h
+// 签名对照 native-src/macos/nowplaying.h
 @Suppress("FunctionName")
 internal interface NowPlayingLibrary : Library {
     interface CommandCallback : Callback {
@@ -20,7 +20,7 @@ internal interface NowPlayingLibrary : Library {
     fun nowplaying_shutdown()
 
     companion object {
-        private const val LIBRARY_NAME = "melodia_nowplaying"
+        private const val LIBRARY_NAME = "melodia_macos"
 
         fun load(): NowPlayingLibrary {
             System.getProperty("compose.application.resources.dir")?.let {

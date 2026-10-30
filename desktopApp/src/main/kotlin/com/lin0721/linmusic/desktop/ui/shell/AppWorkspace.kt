@@ -71,11 +71,14 @@ internal fun Workspace(
         val available = maxWidth - DesktopDimens.PaneGap * 2
         // 无曲目时下载面板与歌单评论也要能打开，右侧栏只承载它们
         val hasTrack = hasNowPlaying || dockOverlay == DockOverlay.Downloads || dockOverlay == DockOverlay.PlaylistComments
-        val measure = pane.measure(available, hasTrack, dockOpen)
-        val dockState = rememberNowPlayingDockState(hasTrack, dockOpen, measure.dockOpenWidth, pane.resizing)
+        // 右侧栏隐藏时按无曲目排版，打开下载、队列等面板时照常出现
+        val dockShown = hasTrack && (!SidePanes.dockHidden || dockOverlay != null)
+        val libraryHidden = SidePanes.libraryHidden
+        val measure = pane.measure(available, dockShown, dockOpen, libraryHidden)
+        val dockState = rememberNowPlayingDockState(dockShown, dockOpen, measure.dockOpenWidth, pane.resizing)
         val workspace = rememberWorkspaceLayout(
             pane.libraryMode, available, dockState, measure.libraryDefaultWidth,
-            pane.libraryStretch, pane.librarySpring, pane.resizing, pane::settleLibrarySpring
+            pane.libraryStretch, pane.librarySpring, pane.resizing, pane::settleLibrarySpring, libraryHidden
         )
         CompositionLocalProvider(
             LocalPaneWidthExtra provides { workspace.centerWidthExtra },
@@ -113,7 +116,7 @@ internal fun Workspace(
                 // 缝隙即拖动条：窄条往外拉先阻尼拉伸再吸附展开，拖窄过阈值吸附成窄条，越过上下限带阻尼、松手回弹
                 PaneResizeHandle(
                     width = workspace.centerGap,
-                    enabled = pane.libraryMode != LibraryMode.EXPANDED,
+                    enabled = pane.libraryMode != LibraryMode.EXPANDED && !libraryHidden,
                     onDragStart = { pane.startLibraryDrag(workspace.libraryWidth) },
                     onDrag = { delta -> pane.dragLibrary(delta, measure.libraryMax, state::setLibraryModeByDrag) },
                     onDragEnd = pane::endLibraryDrag
@@ -135,7 +138,7 @@ internal fun Workspace(
                 }
                 NowPlayingDock(
                     state = dockState,
-                    hasTrack = hasTrack,
+                    hasTrack = dockShown,
                     open = dockOpen,
                     // 全屏歌词开着时面板改由上层的浮层承载
                     overlay = if (lyricsView.isOpen) null else dockOverlay,
