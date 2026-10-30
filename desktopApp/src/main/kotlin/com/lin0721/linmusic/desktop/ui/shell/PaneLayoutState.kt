@@ -110,7 +110,7 @@ class PaneLayoutState(
 
     // 侧栏最宽不超过固定上限，且尽量给中间内容区留出 CenterMinWidth；
     // 两侧互相让位时，音乐库按正在播放栏的记忆宽度算，正在播放栏按音乐库的实际占用算
-    fun measure(available: Dp, hasTrack: Boolean, dockOpen: Boolean): PaneMeasure {
+    fun measure(available: Dp, hasTrack: Boolean, dockOpen: Boolean, libraryHidden: Boolean = false): PaneMeasure {
         val dockStaticOccupied = when {
             !hasTrack -> 0.dp
             dockOpen -> dockWidthPref.coerceIn(DesktopDimens.NowPlayingMinWidth, DesktopDimens.NowPlayingMaxWidth) +
@@ -122,7 +122,11 @@ class PaneLayoutState(
             minOf(DesktopDimens.LibraryMaxWidth, available - dockStaticOccupied - DesktopDimens.PaneGap - DesktopDimens.CenterMinWidth)
         )
         val libraryDefaultWidth = libraryWidthPref.coerceIn(DesktopDimens.LibraryMinWidth, libraryMax)
-        val libraryOccupied = if (libraryMode == LibraryMode.RAIL) DesktopDimens.LibraryRailWidth else libraryDefaultWidth
+        val libraryOccupied = when {
+            libraryHidden -> -DesktopDimens.PaneGap
+            libraryMode == LibraryMode.RAIL -> DesktopDimens.LibraryRailWidth
+            else -> libraryDefaultWidth
+        }
         val dockMax = maxOf(
             DesktopDimens.NowPlayingMinWidth,
             minOf(

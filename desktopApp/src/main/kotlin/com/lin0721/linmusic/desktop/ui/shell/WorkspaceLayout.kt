@@ -32,7 +32,8 @@ class WorkspaceLayout internal constructor(
     val expandedWidth: Dp,
     private val libraryWidthState: State<Dp>,
     private val centerGapState: State<Dp>,
-    private val dock: NowPlayingDockState
+    private val dock: NowPlayingDockState,
+    private val hidden: Boolean
 ) {
     val libraryWidth: Dp get() = libraryWidthState.value
 
@@ -46,7 +47,7 @@ class WorkspaceLayout internal constructor(
             val settledLibrary = if (libraryWidth == libraryTarget) libraryTarget else minOf(libraryFrom, libraryTarget)
             // 弹簧过冲时音乐库会短暂窄于两端，冻结宽度不能超过当前宽度，否则内容右侧露空
             val frozenLibrary = minOf(settledLibrary, libraryWidth).coerceAtMost(defaultWidth)
-            return (libraryWidth - frozenLibrary) + (centerGap - DesktopDimens.PaneGap) + dock.widthExtra
+            return (libraryWidth - frozenLibrary) + (centerGap - if (hidden) 0.dp else DesktopDimens.PaneGap) + dock.widthExtra
         }
 }
 
@@ -59,10 +60,11 @@ fun rememberWorkspaceLayout(
     stretch: Dp,
     spring: Boolean,
     dragging: Boolean,
-    onSpringSettled: () -> Unit
+    onSpringSettled: () -> Unit,
+    hidden: Boolean = false
 ): WorkspaceLayout {
     val expandedWidth = (availableWidth - dock.settledOccupied).coerceAtLeast(0.dp)
-    val target = when (mode) {
+    val target = if (hidden) 0.dp else when (mode) {
         LibraryMode.RAIL -> DesktopDimens.LibraryRailWidth + stretch
         LibraryMode.DEFAULT -> defaultWidth + stretch
         LibraryMode.EXPANDED -> expandedWidth
@@ -85,9 +87,9 @@ fun rememberWorkspaceLayout(
     // 目标切换那一帧动画尚未推进，此刻的宽度即本次过渡的起点
     val libraryFrom = remember(target) { libraryWidth.value }
     val centerGap = animateDpAsState(
-        if (mode == LibraryMode.EXPANDED) 0.dp else DesktopDimens.PaneGap,
+        if (mode == LibraryMode.EXPANDED || hidden) 0.dp else DesktopDimens.PaneGap,
         spec,
         label = "centerGap"
     )
-    return WorkspaceLayout(defaultWidth, target, libraryFrom, expandedWidth, libraryWidth, centerGap, dock)
+    return WorkspaceLayout(defaultWidth, target, libraryFrom, expandedWidth, libraryWidth, centerGap, dock, hidden)
 }

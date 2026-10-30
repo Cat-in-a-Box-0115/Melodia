@@ -240,10 +240,10 @@ val bundleMacLibmpv by tasks.registering(Exec::class) {
 }
 
 // 独立输出目录，避免 libmpv 打包清理时删除桥接库
-val buildMacNowPlaying by tasks.registering(Exec::class) {
+val buildMacNative by tasks.registering(Exec::class) {
     onlyIf { isMacHost }
-    val sourceDir = layout.projectDirectory.dir("native-src/nowplaying")
-    val output = layout.buildDirectory.file("nowplaying/libmelodia_nowplaying.dylib")
+    val sourceDir = layout.projectDirectory.dir("native-src/macos")
+    val output = layout.buildDirectory.file("macos-native/libmelodia_macos.dylib")
     inputs.dir(sourceDir)
     outputs.file(output)
     commandLine("bash", sourceDir.file("build.sh").asFile.absolutePath, output.get().asFile.absolutePath)
@@ -251,8 +251,8 @@ val buildMacNowPlaying by tasks.registering(Exec::class) {
 
 val prepareNativeResources by tasks.registering(Sync::class) {
     if (isMacHost) {
-        dependsOn(bundleMacLibmpv, buildMacNowPlaying)
-        from(layout.buildDirectory.dir("nowplaying")) {
+        dependsOn(bundleMacLibmpv, buildMacNative)
+        from(layout.buildDirectory.dir("macos-native")) {
             include("*.dylib")
         }
         from(layout.projectDirectory.dir("native/macos")) {
