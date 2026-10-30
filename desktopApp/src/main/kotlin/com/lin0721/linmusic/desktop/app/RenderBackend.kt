@@ -21,10 +21,10 @@ enum class RenderBackend(val skikoApi: String?) {
     }
 }
 
-private val isMac = System.getProperty("os.name").startsWith("Mac", ignoreCase = true)
+internal val isMac = System.getProperty("os.name").startsWith("Mac", ignoreCase = true)
 
 // macOS 上 Skiko 只支持 Metal 与软件渲染，Direct3D/OpenGL 设置一律按 AUTO（Metal）处理
-private fun RenderBackend.forCurrentOs(): RenderBackend =
+internal fun RenderBackend.forCurrentOs(): RenderBackend =
     if (isMac && (this == RenderBackend.DIRECT3D || this == RenderBackend.OPENGL)) RenderBackend.AUTO else this
 
 // 须在创建任何窗口前调用；环境变量优先级高于系统属性，留作显卡异常打不开设置页时的兜底

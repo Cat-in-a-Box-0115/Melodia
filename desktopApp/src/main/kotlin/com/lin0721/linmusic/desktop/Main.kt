@@ -56,6 +56,7 @@ import com.lin0721.linmusic.desktop.app.RenderBackend
 import com.lin0721.linmusic.desktop.app.RenderSessionGuard
 import com.lin0721.linmusic.desktop.app.applyRenderBackend
 import com.lin0721.linmusic.desktop.app.scaledMinWindowSize
+import com.lin0721.linmusic.desktop.app.MacAppEvents
 import com.lin0721.linmusic.desktop.app.SingleInstance
 import com.lin0721.linmusic.desktop.app.WindowBounds
 import com.lin0721.linmusic.desktop.app.currentScreenBounds
@@ -164,6 +165,10 @@ fun main() {
     ) {
         exitProcess(0)
     }
+    MacAppEvents.install(
+        onReopen = { activationRequests.trySend(Unit) },
+        onQuit = { quitRequests.trySend(Unit) }
+    )
     // 须先于任何缓存目录的读取与缓存对象创建
     DesktopCacheRoot.configure(DesktopPreferences(PreferencesStores.get(DesktopPaths.preferencesFile(DesktopPreferences.STORE_NAME))))
     DesktopCacheMigration.migrateAll()

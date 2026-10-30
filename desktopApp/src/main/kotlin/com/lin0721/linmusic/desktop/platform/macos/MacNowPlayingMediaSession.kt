@@ -7,17 +7,24 @@ import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
 import java.net.URI
 
 private const val TAG = "MacNowPlayingMediaSession"
@@ -28,6 +35,7 @@ private data class Metadata(val id: String, val title: String, val artist: Strin
 
 internal class MacNowPlayingMediaSession : MediaSessionService {
     private var library: NowPlayingLibrary? = null
+    private val coverClient = OkHttpClient()
 
     // 原生侧解除回调前保持强引用
     private var callback: NowPlayingLibrary.CommandCallback? = null
@@ -81,18 +89,34 @@ internal class MacNowPlayingMediaSession : MediaSessionService {
 
     override suspend fun bind(controller: PlaybackController, playerViewModel: PlayerViewModel): Unit = coroutineScope {
         if (!available.value) return@coroutineScope
-        launch {
+        launch(Dispatchers.Main.immediate) {
+            var coverJob: Job? = null
+            var coverToken: Pair<String, String>? = null
             combine(controller.nowPlaying, playerViewModel.songDetailState) { track, detail ->
                 track?.let {
                     val album = detail.songDetail?.takeIf { song -> song.id == it.songId }?.al?.name.orEmpty()
                     Metadata(it.mediaId, it.title, it.artist, album, sizedCoverUrl(it.artworkUri, COVER_SIZE_PX).orEmpty())
                 }
-            }.distinctUntilChanged().collectLatest { meta ->
+            }.distinctUntilChanged().collect { meta ->
+                // 文字立即更新，封面下载不阻塞切歌
                 call { it.nowplaying_set_metadata(meta?.title, meta?.artist, meta?.album) }
                 pushPlayback(controller)
-                if (meta != null && meta.cover.isNotBlank()) {
-                    val bytes = loadCover(meta.cover)
-                    call { it.nowplaying_set_artwork(bytes, bytes?.size ?: 0) }
+                val token = meta?.let { it.id to it.cover }
+                if (token != coverToken) {
+                    coverToken = token
+                    coverJob?.cancel()
+                    call { it.nowplaying_set_artwork(null, 0) }
+                    coverJob = if (meta != null && meta.cover.isNotBlank()) launch {
+                        val bytes = loadCover(meta.cover)
+                        val track = controller.nowPlaying.value
+                        val currentToken = track?.let {
+                            it.mediaId to sizedCoverUrl(it.artworkUri, COVER_SIZE_PX).orEmpty()
+                        }
+                        // 只接收当前歌曲的封面
+                        if (token == coverToken && token == currentToken) {
+                            call { it.nowplaying_set_artwork(bytes, bytes?.size ?: 0) }
+                        }
+                    } else null
                 }
             }
         }
@@ -134,16 +158,29 @@ internal class MacNowPlayingMediaSession : MediaSessionService {
     }
 
     // 切歌取消旧封面，下载失败不影响文字和播放控制
-    private suspend fun loadCover(url: String): ByteArray? = withContext(Dispatchers.IO) {
+    private suspend fun loadCover(url: String): ByteArray? = withTimeoutOrNull(8_000) {
         try {
             val uri = URI(url)
-            if (uri.scheme != "http" && uri.scheme != "https") return@withContext null
-            val connection = uri.toURL().openConnection().apply {
-                connectTimeout = 5_000
-                readTimeout = 5_000
-            }
-            connection.getInputStream().use { input ->
-                input.readNBytes(MAX_COVER_BYTES + 1).takeIf { it.size <= MAX_COVER_BYTES }
+            if (uri.scheme != "http" && uri.scheme != "https") return@withTimeoutOrNull null
+            suspendCancellableCoroutine { continuation ->
+                val request = coverClient.newCall(Request.Builder().url(url).build())
+                continuation.invokeOnCancellation { request.cancel() }
+                request.enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        continuation.resumeWith(Result.failure(e))
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        continuation.resumeWith(runCatching {
+                            response.use {
+                                if (!it.isSuccessful) return@use null
+                                it.body?.byteStream()?.use { input ->
+                                    input.readNBytes(MAX_COVER_BYTES + 1).takeIf { bytes -> bytes.size <= MAX_COVER_BYTES }
+                                }
+                            }
+                        })
+                    }
+                })
             }
         } catch (e: CancellationException) {
             throw e
