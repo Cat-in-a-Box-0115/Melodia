@@ -230,6 +230,11 @@ val bundleMacLibmpv by tasks.registering(Exec::class) {
     onlyIf { isMacHost }
     val outDir = layout.projectDirectory.dir("native/macos")
     inputs.file(layout.projectDirectory.file("packaging/macos/bundle-libmpv.sh"))
+    // brew upgrade mpv 后 libmpv 内容变化，据此重新打包
+    if (isMacHost) {
+        listOf("/opt/homebrew/lib/libmpv.2.dylib", "/usr/local/lib/libmpv.2.dylib").map(::File)
+            .firstOrNull { it.isFile }?.let { inputs.file(it).withPropertyName("homebrewLibmpv") }
+    }
     outputs.dir(outDir)
     commandLine("bash", "packaging/macos/bundle-libmpv.sh", outDir.asFile.absolutePath)
 }
@@ -330,6 +335,16 @@ compose.desktop {
                 bundleID = "com.lin0721.linmusic.desktop"
                 dockName = "Melodia"
                 appCategory = "public.app-category.music"
+                // 打包的 libmpv 来自本机 Homebrew，最低系统版本跟随构建机
+                minimumSystemVersion = providers.exec { commandLine("sw_vers", "-productVersion") }
+                    .standardOutput.asText.get().trim().substringBefore('.') + ".0"
+                infoPlist {
+                    // 听歌识曲需要麦克风，缺少用途说明时系统会拒绝录音
+                    extraKeysRawXml = """
+                        <key>NSMicrophoneUsageDescription</key>
+                        <string>听歌识曲需要使用麦克风识别正在播放的歌曲</string>
+                    """.trimIndent()
+                }
             }
         }
     }
@@ -357,6 +372,11 @@ afterEvaluate {
             }
         }
     }
+// Compose 把平台资源目录标为 @Internal，只换原生库时打包任务会误判为最新，这里显式登记为输入
+tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask>().configureEach {
+    inputs.files(prepareNativeResources).withPropertyName("nativeAppResources")
+}
+
 tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask>().configureEach {
     if (targetFormat == org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi) {
         dependsOn(buildUninstaller)

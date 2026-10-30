@@ -59,6 +59,8 @@ import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.update.data.UpdateRepository
 import com.lin0721.linmusic.desktop.app.AppInfo
 import com.lin0721.linmusic.desktop.app.RenderBackend
+import com.lin0721.linmusic.desktop.app.forCurrentOs
+import com.lin0721.linmusic.desktop.app.isMac
 import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.CloseAction
 import com.lin0721.linmusic.desktop.data.MiniLyricFontSize
@@ -810,8 +812,8 @@ internal fun settingsEntries(
                 keywords = listOf("渲染", "gpu", "显卡", "硬件加速", "黑屏", "闪烁", "directx", "opengl")
             ) {
                 SettingsDropdown(
-                    options = RenderBackend.entries,
-                    current = renderBackend,
+                    options = if (isMac) listOf(RenderBackend.AUTO, RenderBackend.SOFTWARE) else RenderBackend.entries,
+                    current = renderBackend.forCurrentOs(),
                     label = ::renderBackendLabel,
                     onSelect = desktop::updateRenderBackend
                 )
@@ -1118,7 +1120,7 @@ private fun CardLayoutSetting(
 }
 
 private fun renderBackendLabel(backend: RenderBackend): String = when (backend) {
-    RenderBackend.AUTO -> "自动"
+    RenderBackend.AUTO -> if (isMac) "自动（Metal）" else "自动"
     RenderBackend.DIRECT3D -> "DirectX"
     RenderBackend.OPENGL -> "OpenGL"
     RenderBackend.SOFTWARE -> "软件渲染"
