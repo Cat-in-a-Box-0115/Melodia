@@ -21,6 +21,12 @@ enum class RenderBackend(val skikoApi: String?) {
     }
 }
 
+private val isMac = System.getProperty("os.name").startsWith("Mac", ignoreCase = true)
+
+// macOS 上 Skiko 只支持 Metal 与软件渲染，Direct3D/OpenGL 设置一律按 AUTO（Metal）处理
+private fun RenderBackend.forCurrentOs(): RenderBackend =
+    if (isMac && (this == RenderBackend.DIRECT3D || this == RenderBackend.OPENGL)) RenderBackend.AUTO else this
+
 // 须在创建任何窗口前调用；环境变量优先级高于系统属性，留作显卡异常打不开设置页时的兜底
 fun applyRenderBackend(backend: RenderBackend) {
     val override = System.getenv(RENDER_API_ENV)
@@ -28,8 +34,9 @@ fun applyRenderBackend(backend: RenderBackend) {
         AppLogger.i(TAG, "环境变量 $RENDER_API_ENV=$override 生效，忽略设置项 ${backend.name}")
         return
     }
-    backend.skikoApi?.let { System.setProperty(RENDER_API_PROPERTY, it) }
-    AppLogger.i(TAG, "渲染方式设置=${backend.name}")
+    val effective = backend.forCurrentOs()
+    effective.skikoApi?.let { System.setProperty(RENDER_API_PROPERTY, it) }
+    AppLogger.i(TAG, "渲染方式设置=${effective.name}")
 }
 
 // Direct3D 绘制路径重建交换链时不检查 D3D12 的创建结果（skiko makeDirectXSurface 直接解引用
@@ -50,6 +57,8 @@ object RenderSessionGuard {
         if (previous == null) return requested
 
         AppLogger.w(TAG, "上次启动（渲染方式=$previous）未正常退出")
+        // 降级只针对 Windows 的 Direct3D 崩溃；macOS 不支持 OpenGL，降级反而会让窗口无法创建
+        if (isMac) return requested
         if (requested != RenderBackend.AUTO && requested != RenderBackend.DIRECT3D) return requested
 
         AppLogger.w(TAG, "Direct3D 崩溃后改用 OpenGL 渲染，可在设置 › 界面 › 渲染方式里重新选择")

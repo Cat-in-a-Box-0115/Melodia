@@ -26,12 +26,20 @@ internal interface LibMpv : Library {
     fun mpv_error_string(error: Int): String?
 
     companion object {
-        private const val LIBRARY_NAME = "libmpv-2"
+        private val isMac = System.getProperty("os.name").startsWith("Mac", ignoreCase = true)
+
+        // Windows 为 libmpv-2.dll；macOS 为 libmpv.dylib（JNA 自动补 lib 前缀与后缀）
+        private val LIBRARY_NAME = if (isMac) "mpv" else "libmpv-2"
 
         fun load(): LibMpv {
             // Compose 在开发运行与安装包里都会通过该属性给出平台资源目录，DLL 放在那里
             System.getProperty("compose.application.resources.dir")?.let {
                 NativeLibrary.addSearchPath(LIBRARY_NAME, it)
+            }
+            // macOS 开发运行时回退到 Homebrew 安装的 libmpv
+            if (isMac) {
+                NativeLibrary.addSearchPath(LIBRARY_NAME, "/opt/homebrew/lib")
+                NativeLibrary.addSearchPath(LIBRARY_NAME, "/usr/local/lib")
             }
             return Native.load(
                 LIBRARY_NAME,

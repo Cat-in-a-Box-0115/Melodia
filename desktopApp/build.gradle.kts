@@ -208,7 +208,10 @@ abstract class DownloadVerifiedFileTask : DefaultTask() {
     }
 }
 
+val isMacHost = System.getProperty("os.name").startsWith("Mac")
+
 val downloadLibmpv by tasks.registering(DownloadVerifiedFileTask::class) {
+    onlyIf { System.getProperty("os.name").startsWith("Windows") }
     val tag = providers.gradleProperty("libmpvReleaseTag")
     url.set(tag.map { "https://github.com/rinchao0721/mpv-winbuild-cmake/releases/download/$it/libmpv-2.dll" })
     sha256.set(providers.gradleProperty("libmpvSha256"))
@@ -216,12 +219,42 @@ val downloadLibmpv by tasks.registering(DownloadVerifiedFileTask::class) {
 }
 
 // native 目录里的 libmpv 与 SMTC 桥接 DLL，打包与运行前同步进 Compose 约定的平台资源目录
+// macOS：把 Homebrew 的 libmpv 及其依赖打包成自包含的 dylib 集合
+val bundleMacLibmpv by tasks.registering(Exec::class) {
+    onlyIf { isMacHost }
+    val outDir = layout.projectDirectory.dir("native/macos")
+    inputs.file(layout.projectDirectory.file("packaging/macos/bundle-libmpv.sh"))
+    outputs.dir(outDir)
+    commandLine("bash", "packaging/macos/bundle-libmpv.sh", outDir.asFile.absolutePath)
+}
+
+// 独立输出目录，避免 libmpv 打包清理时删除桥接库
+val buildMacNowPlaying by tasks.registering(Exec::class) {
+    onlyIf { isMacHost }
+    val sourceDir = layout.projectDirectory.dir("native-src/nowplaying")
+    val output = layout.buildDirectory.file("nowplaying/libmelodia_nowplaying.dylib")
+    inputs.dir(sourceDir)
+    outputs.file(output)
+    commandLine("bash", sourceDir.file("build.sh").asFile.absolutePath, output.get().asFile.absolutePath)
+}
+
 val prepareNativeResources by tasks.registering(Sync::class) {
-    dependsOn(buildSmtc, downloadLibmpv)
-    from(layout.projectDirectory.dir("native")) {
-        include("*.dll")
+    if (isMacHost) {
+        dependsOn(bundleMacLibmpv, buildMacNowPlaying)
+        from(layout.buildDirectory.dir("nowplaying")) {
+            include("*.dylib")
+        }
+        from(layout.projectDirectory.dir("native/macos")) {
+            include("*.dylib")
+        }
+        into(layout.buildDirectory.dir("appResources/macos-arm64"))
+    } else {
+        dependsOn(buildSmtc, downloadLibmpv)
+        from(layout.projectDirectory.dir("native")) {
+            include("*.dll")
+        }
+        into(layout.buildDirectory.dir("appResources/windows"))
     }
-    into(layout.buildDirectory.dir("appResources/windows"))
 }
 
 val generateAppInfo by tasks.registering {
@@ -266,7 +299,7 @@ compose.desktop {
             optimize.set(false)
         }
         nativeDistributions {
-            targetFormats(TargetFormat.Msi)
+            targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Melodia"
             packageVersion = desktopPackageVersion
             vendor = "Melodia"
@@ -285,6 +318,12 @@ compose.desktop {
                 shortcut = true
                 // 目录与安装范围由 setup.exe 选择
                 dirChooser = false
+            }
+            macOS {
+                iconFile.set(layout.projectDirectory.file("icons/melodia.icns"))
+                bundleID = "com.lin0721.linmusic.desktop"
+                dockName = "Melodia"
+                appCategory = "public.app-category.music"
             }
         }
     }

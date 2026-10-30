@@ -6,6 +6,7 @@ import com.lin0721.linmusic.desktop.platform.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.MediaSessionService
 import com.lin0721.linmusic.desktop.platform.WindowEffects
 import com.lin0721.linmusic.desktop.platform.fallback.fallbackPlatformModule
+import com.lin0721.linmusic.desktop.platform.macos.macPlatformModule
 import com.lin0721.linmusic.desktop.platform.windows.windowsPlatformModule
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -25,14 +26,19 @@ class PlatformModuleTest {
     @Test
     fun fallsBackOnOtherSystems() {
         assertSame(fallbackPlatformModule, platformModuleFor("Linux"))
-        assertSame(fallbackPlatformModule, platformModuleFor("Mac OS X"))
         assertSame(fallbackPlatformModule, platformModuleFor(""))
     }
 
-    // 两个模块都要能解析出全部平台服务，缺一个启动时才会暴露
     @Test
-    fun bothModulesProvideEveryService() {
-        listOf(windowsPlatformModule, fallbackPlatformModule).forEach { module ->
+    fun selectsMacModuleOnMac() {
+        assertSame(macPlatformModule, platformModuleFor("Mac OS X"))
+        assertSame(macPlatformModule, platformModuleFor("macOS"))
+    }
+
+    // 所有模块都要能解析出全部平台服务
+    @Test
+    fun allModulesProvideEveryService() {
+        listOf(windowsPlatformModule, macPlatformModule, fallbackPlatformModule).forEach { module ->
             val koin = koinApplication { modules(module) }.koin
             assertNotNull(koin.get<MediaSessionService>())
             assertNotNull(koin.get<GlobalHotkeyService>())
