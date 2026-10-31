@@ -1,0 +1,1377 @@
+# 英文界面词典：中文<TAB>English，模板占位符 {0}、{1}，可调换顺序。由 ./gradlew :desktopApp:extractI18nStrings 列出待译文案
+--粉丝	-- followers
+0% 时只显示文字	Text only at 0%
+Android 全屏播放页	Android full-screen player
+Android 宽屏播放页	Android wide player
+Android 迷你播放器	Android mini player
+Cookie 格式不正确	Invalid cookie format
+Hi-Res 无损	Hi-Res Lossless
+Melodia 桌面歌词	Melodia Desktop Lyrics
+Melodia 迷你播放器	Melodia Mini Player
+M月d日	M/d
+QQ 音乐评论加载失败	Failed to load QQ Music comments
+QQ 音乐评论只支持浏览	QQ Music comments are read-only
+QQ音乐	QQ Music
+Version {0}（测试版）	Version {0} (beta)
+privacy 只能是 0 或 10	privacy must be 0 or 10
+xeapi 公钥获取失败，评论功能暂时不可用	Couldn't get the xeapi public key; comments are unavailable for now
+yyyy年M月d日	yyyy/M/d
+{0} / {1} 首已完成	{0} / {1} songs done
+{0} · 命中 {1}	{0} · {1} matched
+{0} 不能超过 200 个	{0} can't exceed 200
+{0} 人听过	{0} listeners
+{0} 位歌手	{0} artists
+{0} 分钟	{0} min
+{0} 分钟前	{0} min ago
+{0} 匹配中	{0} matching
+{0} 命中	{0} matched
+{0} 天前	{0} days ago
+{0} 小时 {1} 分钟	{0} h {1} min
+{0} 小时前	{0} h ago
+{0} 已从「{1}」移除	{0} removed from "{1}"
+{0} 无响应	{0} not responding
+{0} 期	{0} episodes
+{0} 未命中	{0} no match
+{0} 次	{0} times
+{0} 次播放	{0} plays
+{0} 没有声音	{0} no sound
+{0} 秒	{0} s
+{0} 粉丝	{0} followers
+{0} 订阅	{0} subscribers
+{0} 设置	{0} settings
+{0} 首	{0} songs
+{0} 首 · {1}	{0} songs · {1}
+{0} 首 · {1} / {2}	{0} songs · {1} / {2}
+{0} 首 · {1} 次播放	{0} songs · {1} plays
+{0} 首已在队列中	{0} songs already queued
+{0} 首歌	{0} songs
+{0} 首歌曲	{0} songs
+{0} 首歌曲，已用 {1} / {2}	{0} songs, {1} / {2} used
+{0}/{1} 首完成	{0}/{1} songs done
+{0}–{1} 秒	{0}–{1} s
+{0}使用指定颜色	{0} uses a custom color
+{0}年{1}月{2}日	{1}/{2}/{0}
+{0}月{1}日	{0}/{1}
+{0}的听歌排行	{0}'s top songs
+{0}的更多专辑	More albums by {0}
+{0}粉丝	{0} followers
+{0}评论	{0} comments
+{0}透出背景图	{0} shows the background image
+{0}（歌曲 {1} · 图片 {2} · 歌词 {3} · 离线数据 {4}）	{0} (songs {1} · images {2} · lyrics {3} · offline data {4})
+{0}：命令执行失败	{0}: command failed
+· {0}（新增）	· {0} (new)
+《{0}》下载失败：{1}	"{0}" download failed: {1}
+《{0}》下载完成	"{0}" downloaded
+《{0}》已下载过	"{0}" already downloaded
+《{0}》换源失败，可能暂无该音源或插件已失效	Source fallback failed for "{0}"; the source may be unavailable or the plugin broken
+《{0}》无法播放，提供它的插件已停用或没有返回地址	Can't play "{0}"; its plugin is disabled or returned no URL
+《{0}》暂无版权或需要会员	"{0}" is unavailable or requires VIP
+「{0}」下载完成{1}	"{0}" downloaded{1}
+「{0}」请求修改你的网易云账号（收藏、歌单与关注）。允许后不再询问，重新安装插件时需要再次确认。	"{0}" wants to modify your NetEase account (likes, playlists and follows). You won't be asked again; reinstalling the plugin asks again.
+「{0}」请求删除歌单「{1}」，删除后无法恢复。	"{0}" wants to delete the playlist "{1}". This can't be undone.
+一	Mon
+三	Wed
+上一位歌手	Previous artist
+上一行	Previous line
+上一页	Previous page
+上一首	Previous
+上传中 {0}%	Uploading {0}%
+上传到云盘	Upload to Cloud
+上传失败	Upload failed
+上传文件夹	Upload folder
+上传歌曲	Upload songs
+上移	Move up
+下一位歌手	Next artist
+下一句	Next line
+下一行	Next line
+下一页	Next page
+下一首	Next
+下一首播放	Play next
+下午	Afternoon
+下移	Move down
+下载	Download
+下载{0}	Download {0}
+下载中 {0}%	Downloading {0}%
+下载失败	Download failed
+下载异常	Download error
+下载时把歌词写入音频文件的标签	Write lyrics into the audio file's tags when downloading
+下载目录	Download folder
+下载目录不可用，请到设置里重新选择	Download folder unavailable; choose one again in Settings
+下载管理	Downloads
+下载远程脚本失败：{0}	Failed to download remote script: {0}
+不支持的搜索类型 {0}	Unsupported search type {0}
+不支持的网易接口 {0}	Unsupported NetEase API {0}
+不支持该按键	Key not supported
+不显示	Hidden
+不能删除「我喜欢的音乐」	Can't delete "Liked Songs"
+不能选择缓存目录内部或包含缓存目录的位置	Can't choose a location inside or containing the cache folder
+不过滤	No filter
+不透明度	Opacity
+与登录窗口建立通信超时	Timed out connecting to the login window
+专辑	Album
+专辑 · {0}	Album · {0}
+专辑: {0}	Album: {0}
+个人主页	Profile
+中	Medium
+中午	Noon
+中等	Medium
+为你推荐	Recommended for you
+为您量身定制的每日歌曲	Daily songs made for you
+主色	Accent color
+主色上的文字	Text on accent
+主色文字	Accent text
+主要文字	Primary text
+主页	Home
+主题	Theme
+主题（实验性）	Theme (experimental)
+二	Tue
+二维码已过期	QR code expired
+二维码生成失败，请重试	Couldn't generate QR code, try again
+云盘	Cloud
+云盘上传	Cloud uploads
+云盘上传中 {0}%	Uploading to Cloud {0}%
+云盘上传完成，共 {0} 首	Cloud upload done, {0} songs
+云盘上传结束，{0} 首成功，{1} 首失败	Cloud upload finished: {0} succeeded, {1} failed
+云盘加载失败	Failed to load Cloud
+云盘里还没有歌曲	No songs in Cloud yet
+云盘里还没有歌曲，上传本地音乐即可随处收听	No songs in Cloud yet. Upload local music to listen anywhere
+五	Fri
+交叉淡化	Crossfade
+亮色	Light
+仅保存在本机，用于调用网易云接口	Stored only on this computer, used to call NetEase APIs
+仅原词	Original only
+仅安装版可用	Installer version only
+仅浅色，只在浅色模式下可选	Light only, available in light mode
+仅深色，只在深色模式下可选	Dark only, available in dark mode
+仅自己可见	Only me
+仅错误	Errors only
+今天	Today
+今日为你推荐	Today's picks for you
+今日优选	Today's picks
+从 {0} 播放	Play from {0}
+从云盘删除	Delete from Cloud
+从头播放	Play from start
+从歌单中删除	Remove from playlist
+从歌单中移除	Remove from playlist
+从识别历史删除	Remove from history
+从队列中移除	Remove from queue
+从音乐库移除	Remove from library
+代表歌手	Key artists
+以你的账号读取网易云内容	Read NetEase content with your account
+位置	Position
+作为歌词源提供歌词	Provide lyrics as a lyrics source
+作为音源提供播放链接	Provide playback URLs as an audio source
+作者：{0}	Author: {0}
+你在此曲风最爱	Your favorites in this genre
+你的偏好	Your taste
+使用网易云音乐 App 扫描二维码	Scan the QR code with the NetEase Cloud Music app
+例如 https://your-unm-server.com	e.g. https://your-unm-server.com
+保存	Save
+保存 {0} 项更改	Save {0} changes
+保存分享图片	Save share image
+保存失败	Save failed
+保存失败，文件可能正在播放或为只读	Save failed; the file may be playing or read-only
+保存插件自己的数据	Save its own data
+保留为副本	Keep as copy
+保留在程序坞	Keep in Dock
+修改你的网易云账号：红心、歌单、收藏与关注	Modify your NetEase account: likes, playlists, collections and follows
+修改失败	Update failed
+修改开机启动失败	Failed to change launch at startup
+修改歌单名称和简介失败	Failed to update playlist name and description
+修改歌单名称失败	Failed to rename playlist
+修改歌单简介失败	Failed to update playlist description
+修改自定义主色	Change custom accent color
+允许	Allow
+允许插件修改账号？	Allow the plugin to modify your account?
+允许访问的域名	Allowed domains
+全局热键	Global hotkeys
+全屏	Full screen
+全屏歌词	Full-screen lyrics
+全屏歌词设置	Full-screen lyrics settings
+全选	Select all
+全部	All
+全部上传到云盘	Upload all to Cloud
+全部加入下一首播放	Play all next
+全部回复 · {0}	All replies · {0}
+全部曲风	All genres
+全部本地歌曲	All local songs
+公开歌单	Public playlist
+六	Sat
+共 {0} 项	{0} items
+共 {0} 首	{0} songs
+关于	About
+关于艺人	About the artist
+关注	Follow
+关注失败	Follow failed
+关注成功	Followed
+关闭	Close
+关闭下载管理	Close downloads
+关闭主窗口时	When closing the main window
+关闭后切页、面板展开收起等直接切换，不影响歌词滚动	When off, page switches and panel open/close happen instantly; lyric scrolling is unaffected
+关闭后当前行整行高亮	When off, the whole current line is highlighted
+关闭播放队列	Close queue
+关闭桌面歌词	Close desktop lyrics
+关闭正在播放	Close Now Playing
+关闭评论	Close comments
+关闭输出设备	Close output devices
+关闭迷你播放器	Close mini player
+其他可能	Other matches
+其他歌单	Other playlists
+其他设备	Other devices
+内容源 {0} 个	{0} content sources
+内嵌歌词	Embedded lyrics
+内嵌歌词（LRC 格式）	Embedded lyrics (LRC format)
+内置主题	Built-in themes
+内置布局	Built-in layout
+再识别	Try again
+写入过于频繁，请稍后再试	Too many writes, try again later
+凌晨	Late night
+减少动态	Reduce motion
+减少推荐	Fewer like this
+出现未知错误，请重试	Something went wrong, try again
+出现黑屏、闪烁或花屏时可尝试切换，重启后生效	Try switching if you see black screens, flicker or artifacts. Takes effect after restart
+分享	Share
+分享单曲《{0}》	Shared the song "{0}"
+分享歌词	Share lyrics
+切换样式	Switch style
+切换深浅模式与主色，立即生效	Switch light/dark mode and accent color, applied instantly
+切换输出设备失败	Failed to switch output device
+切歌	Track change
+列表	List
+刚刚	Just now
+创建	Create
+创建并加入歌单成功	Created playlist and added
+创建歌单	Create playlist
+创建歌单对话框中的隐私开关以此为初始值	Default for the privacy switch in the create-playlist dialog
+删除	Delete
+删除失败	Delete failed
+删除插件	Remove plugin
+删除歌单	Delete playlist
+删除皮肤	Delete skin
+删除评论	Delete comment
+制作信息	Credits
+刷新	Refresh
+刷新二维码	Refresh QR code
+刷新音乐库	Refresh library
+前往下载	Go to download
+前进	Forward
+剩 {0} 分钟	{0} min left
+剩 {0} 小时	{0} h left
+剩 {0} 小时 {1} 分钟	{0} h {1} min left
+加入播放队列	Add to queue
+加入歌单	Add to playlist
+加粗	Bold
+加载中	Loading
+加载听歌排行失败	Failed to load top songs
+加载失败	Failed to load
+加载失败: {0}	Failed to load: {0}
+加载更多失败	Failed to load more
+加载更多歌单失败	Failed to load more playlists
+加载歌单失败	Failed to load playlists
+加载评论失败: {0}	Failed to load comments: {0}
+动画	Animations
+包含 beta/rc 预览版本，可能不稳定	Includes beta/rc previews, which may be unstable
+包含播放器布局（后续版本生效）	Includes a player layout (applies in a later version)
+包含背景图	Includes a background image
+匹配	Match
+匹配失败	Match failed
+匹配成功	Matched
+匹配网易云歌曲	Match NetEase song
+十六进制	Hex
+升序	Ascending
+升级	Upgrade
+升级插件	Upgrade plugin
+半透明白	Translucent white
+单曲	Songs
+卡拉OK	Karaoke
+卡片	Card
+卸载	Uninstall
+历史日推	Past daily picks
+压缩包内找到 {0} 个 .js 脚本：	Found {0} .js scripts in the archive:
+去登录	Log in
+双行	Two lines
+反馈	Feedback
+发光	Glow
+发布失败 code={0}	Publish failed code={0}
+发散	Spread
+发现新版本 {0}{1}	New version {0}{1}
+发行时间	Release date
+发送	Send
+发送成功	Sent
+取消	Cancel
+取消下载	Cancel download
+取消全选	Deselect all
+取消关注	Unfollow
+取消关注失败	Unfollow failed
+取消喜欢	Unlike
+取消回复	Cancel reply
+取消定时	Cancel timer
+取消屏蔽	Unblock
+取消收藏	Remove from collection
+取消收藏{0}	Remove {0} from collection
+取消点赞	Remove like
+取消置顶	Unpin
+取消订阅	Unsubscribe
+取消订阅电台	Unsubscribe from podcast
+取消迁移	Cancel move
+取消静音	Unmute
+另存为…	Save as…
+另存为新皮肤	Save as new skin
+只能操作自己创建的歌单	Only playlists you created can be changed
+可以试试：调大音量、靠近音源，或等到副歌再识别	Try turning up the volume, moving closer, or waiting for the chorus
+右对齐	Right
+名字不能为空哦！	Name can't be empty!
+名称  {0}/40	Name  {0}/40
+名称和详情	Name and details
+后退	Back
+向右	Right
+向左	Left
+向远程自建或第三方的 UNM（UnblockNeteaseMusic）服务器请求音频直链	Request audio URLs from a self-hosted or third-party UNM (UnblockNeteaseMusic) server
+听歌排行	Top songs
+听歌排行的歌单	Top songs playlist
+听歌识曲	Song recognition
+启动	Startup
+启动官方登录窗口失败: {0}	Failed to open the official login window: {0}
+启动应用时后台检查一次更新	Check for updates in the background at launch
+启动时会自动扫描本地歌单绑定的文件夹	Folders linked to local playlists are scanned at launch
+启用 AMLL 歌词源	Enable AMLL lyrics source
+启用QQ音乐歌词源	Enable QQ Music lyrics source
+启用开关、插件列表与脚本导入	Enable switch, plugin list and script import
+启用社区源插件	Enable community source plugins
+启用网易云歌词源	Enable NetEase lyrics source
+启用远程 UNM 服务	Enable remote UNM service
+周{0}	{0}
+周一	Mon
+周三	Wed
+周二	Tue
+周五	Fri
+周六	Sat
+周四	Thu
+周日	Sun
+命令 {0} 个	{0} commands
+咪咕	Migu
+咪咕音乐	Migu Music
+响应体为空	Empty response
+响应超过 4MB	Response exceeds 4MB
+响度	Loudness
+喜欢	Like
+喜欢的音乐	Liked Songs
+四	Thu
+回复	Reply
+回复 @{0}...	Reply to @{0}...
+回复 @{0}:	Reply to @{0}:
+回复 {0}：{1}	Reply to {0}: {1}
+回忆坐标	Memory lane
+图片	Images
+图片文件无效或超过 30MB	Invalid image file or larger than 30MB
+在 {0} 没有找到相关结果	No results on {0}
+在上方搜索框输入关键词后按回车搜索	Type in the search box above and press Enter
+在左侧选择要分享的歌词	Pick lyrics to share on the left
+在搜索结果页提供酷狗、酷我、QQ 音乐的平台标签，切换后才会发起搜索；播放通过换源插件解析	Adds Kugou, Kuwo and QQ Music tabs to search results; searches start only when you switch, and playback is resolved by source plugins
+在文件夹中显示	Show in folder
+在歌单内搜索	Search in playlist
+在浏览器登录 music.163.com 后，复制 Cookie 中 MUSIC_U 的值粘贴到这里	Log in to music.163.com in your browser, then paste the MUSIC_U value from its cookies here
+在线播放音质	Streaming quality
+在网易云中搜索	Search on NetEase
+在音乐库中搜索	Search library
+地址	Address
+均衡	Balanced
+填写 UNM Utils 服务的基础访问 URL（末尾无需斜杠）：	Base URL of your UNM Utils service (no trailing slash):
+壁纸	Wallpaper
+复制	Copy
+复制{0}链接	Copy {0} link
+复制专辑链接	Copy album link
+复制图片	Copy image
+复制失败	Copy failed
+复制失败：{0}	Copy failed: {0}
+复制歌单链接	Copy playlist link
+复制歌手链接	Copy artist link
+复制歌曲信息	Copy song info
+复制歌曲链接	Copy song link
+复制电台链接	Copy podcast link
+复制节目链接	Copy episode link
+复制链接	Copy link
+外观	Appearance
+外部平台歌曲暂不支持下载	Songs from other platforms can't be downloaded yet
+多关注几位歌手，新歌会出现在这里	Follow more artists and their new songs show up here
+多平台聚合搜索	Multi-platform search
+多选	Select
+夜间	Night
+大	Large
+大小	Size
+大网格	Large grid
+天蓝	Sky blue
+失败	Failed
+失败 {0} 个	{0} failed
+头戴	Headphones
+如 2024	e.g. 2024
+如 3 或 3/12	e.g. 3 or 3/12
+始终置顶	Always on top
+媒体键	Media keys
+字体	Font
+字号	Font size
+字母排序	Alphabetical
+字词呼吸光晕动效	Word glow animation
+字重	Font weight
+存储与下载	Storage & downloads
+安装并启用	Install and enable
+安装插件失败	Failed to install plugin
+安装皮肤失败	Failed to install skin
+完成	Done
+官方网易云音源不可用或仅为试听时，自动从可用音源解析完整播放直链	When the official NetEase source is unavailable or preview-only, resolve a full playback URL from other sources
+容量	Capacity
+对齐	Alignment
+对齐方式	Alignment
+导入	Import
+导入 .melodiaplugin 插件包，扩展播放器布局、页面、音源与歌词源	Import a .melodiaplugin package to add player layouts, pages, audio sources and lyrics sources
+导入 .melodiaskin 皮肤包，更换配色、背景图与样式	Import a .melodiaskin package to change colors, background and style
+导入 LX 插件脚本	Import LX plugin script
+导入 {0} 个	{0} imported
+导入并应用	Import and apply
+导入异常：{0}	Import error: {0}
+导入所选（{0}）	Import selected ({0})
+导入插件	Import plugin
+导入插件包，扩展播放器布局、页面、音源与歌词源	Import a plugin package to add player layouts, pages, audio sources and lyrics sources
+导入版本：v{0}（作者：{1}）	Imported version: v{0} (author: {1})
+导入皮肤	Import skin
+导入皮肤包，更换配色、背景图与样式	Import a skin package to change colors, background and style
+导出	Export
+导出失败	Export failed
+导出当前主题	Export current theme
+导出插件	Export plugin
+封面	Cover
+封面上传成功但未获取到图片 ID	Cover uploaded but no image ID was returned
+封面取色 {0}	Cover color {0}
+封面已更新	Cover updated
+封面数据为空	Cover data is empty
+封面色卡片	Cover color card
+将清除已缓存的歌曲、图片和歌词，离线数据会保留。已缓存的歌曲在离线时将无法播放。	Cached songs, images and lyrics will be cleared; offline data is kept. Cached songs won't play while offline.
+小	Small
+小窗	Mini window
+小网格	Small grid
+尚未导入脚本，请先导入 .js 脚本	No script imported yet. Import a .js script first
+居中	Center
+屏蔽	Block
+展开	Expand
+展开 {0} 条回复 ›	Show {0} replies ›
+展开其余 {0} 个插件	Show {0} more plugins
+展开画像	Show profile
+展开音乐库	Expand library
+左对齐	Left
+巨字海报	Big-type poster
+已{0}: {1}	{0}: {1}
+已上传	Uploaded
+已下载	Downloaded
+已下载过	Already downloaded
+已为您开启《{0}》的漫游	Started Roam from "{0}"
+已从《{0}》开启心动模式	Heartbeat mode started from "{0}"
+已从云盘删除	Deleted from Cloud
+已从我喜欢的音乐中移除	Removed from Liked Songs
+已从歌单中删除	Removed from playlist
+已从歌单中删除 {0} 首歌曲	Removed {0} songs from playlist
+已作为新插件添加：{0}	Added as a new plugin: {0}
+已保存到 {0}	Saved to {0}
+已保存歌曲信息	Song info saved
+已停用	Disabled
+已关注	Following
+已关注歌手	Following artist
+已减少此类推荐	You'll see fewer like this
+已创建歌单并导入 {0} 首歌曲	Created playlist and imported {0} songs
+已创建歌单并添加 {0} 首歌曲	Created playlist and added {0} songs
+已加入	Added
+已加入 · {0}	Added · {0}
+已加入上传队列 {0} 首	{0} songs added to upload queue
+已加入上传队列 {0} 首，其余已在队列中	{0} songs added to upload queue; the rest were already queued
+已加入下载队列	Added to downloads
+已升级「{0}」	Upgraded "{0}"
+已取消关注	Unfollowed
+已取消关注歌手	Unfollowed artist
+已取消屏蔽该艺人所有歌曲	Unblocked all songs by this artist
+已取消收藏{0}	Removed {0} from collection
+已取消收藏专辑	Album removed from collection
+已取消收藏歌单	Playlist removed from collection
+已取消订阅	Unsubscribed
+已取消迁移	Move canceled
+已听完	Finished
+已启用	Enabled
+已喜欢 {0} 首歌曲	Liked {0} songs
+已喜欢 {0} 首歌曲，{1} 首失败	Liked {0} songs, {1} failed
+已在歌单中	Already in playlist
+已复制图片	Image copied
+已复制歌曲信息	Song info copied
+已复制链接	Link copied
+已安装同一皮肤，可覆盖原有版本或另存为新皮肤	This skin is already installed. Overwrite it or save as a new skin
+已安装并启用「{0}」	Installed and enabled "{0}"
+已完成	Completed
+已导入 {0} 首歌曲	Imported {0} songs
+已导出「{0}」	Exported "{0}"
+已导出当前主题	Current theme exported
+已将 {0} 首歌曲加入下载队列	Added {0} songs to downloads
+已将 {0} 首歌曲加入下载队列，{1}	Added {0} songs to downloads, {1}
+已屏蔽该艺人所有歌曲	Blocked all songs by this artist
+已开启心动模式	Heartbeat mode on
+已开启相似歌曲漫游	Similar-song Roam on
+已开始播放所选歌曲	Playing the selected song
+已录 {0} 秒	Recorded {0} s
+已录 {0} 秒 · 正在匹配第 {1} 个片段	Recorded {0} s · matching segment {1}
+已录 {0} 秒 · 满 3 秒开始匹配	Recorded {0} s · matching starts at 3 s
+已成功插播相似歌曲《{0}》到下一首	Inserted similar song "{0}" to play next
+已手动匹配	Matched manually
+已扫码，请在手机上确认登录	Scanned. Confirm the login on your phone
+已排除 {0} 个文件夹	{0} folders excluded
+已播放	Played
+已播颜色	Played color
+已收藏{0}	Added {0} to collection
+已收藏专辑	Album added to collection
+已收藏歌单	Playlist added to collection
+已显示 {0}/{1} 张，展开可调整顺序与显隐	Showing {0}/{1} cards. Expand to reorder or hide
+已暂停	Paused
+已添加	Added
+已添加 {0} 首歌曲到歌单	Added {0} songs to playlist
+已添加 {0} 首歌曲至下一首播放	Added {0} songs to play next
+已添加 {0} 首歌曲至下一首播放，跳过 {1} 首不可播放	Added {0} songs to play next, skipped {1} unplayable
+已添加 {0} 首歌曲至播放队列	Added {0} songs to queue
+已添加到下一首播放	Added to play next
+已添加到我喜欢的音乐	Added to Liked Songs
+已添加到歌单	Added to playlist
+已添加至下一首播放	Added to play next
+已清除缓存，释放 {0}	Cache cleared, freed {0}
+已用空间	Space used
+已置顶	Pinned
+已自动修正对比度	Contrast adjusted automatically
+已自动匹配	Matched automatically
+已被其他程序占用，未生效	In use by another app, not applied
+已覆盖更新插件：{0}	Plugin updated: {0}
+已解除匹配	Match removed
+已订阅	Subscribed
+已调起网易云官方网页登录窗口	Opened the official NetEase web login window
+已退出登录	Logged out
+已选 {0} 首	{0} selected
+已选中	Selected
+布局	Layout
+常规	Regular
+平台	Platform
+年份	Year
+开发版本 {0}	Dev build {0}
+开发版本不支持检查更新	Dev builds can't check for updates
+开启后优先尝试通过 LX 插件脚本解析，失败后 fallback 到远程 UNM 服务；关闭则先尝试远程 UNM	When on, LX plugin scripts are tried first, then the remote UNM service; when off, remote UNM is tried first
+开启后参与音源换源解析与第三方搜索结果播放	When on, used for source fallback and for playing third-party search results
+开启柔和渐变推进边缘	Soft gradient on the progress edge
+开启桌面歌词	Show desktop lyrics
+开始识别	Start
+开机	Startup
+开机自动启动	Launch at startup
+强调色	Accent color
+当前已是最新版本	You're up to date
+当前平台暂无可用换源插件	No source plugins available for this platform
+当前版本	Current version
+当前皮肤指定了主色，选择自定义颜色可覆盖	This skin sets an accent color; choose a custom color to override it
+当前系统暂不支持	Not supported on this system yet
+当前音质	Current quality
+录制	Recording
+录满 8 秒，{0} 个片段都没有匹配结果	8 s recorded, no match in {0} segments
+影综	Film & TV
+循环模式	Repeat mode
+心动模式	Heartbeat mode
+必须包含播放/暂停按钮	Must include a play/pause button
+快捷键	Shortcuts
+快捷键需要包含 Ctrl 或 Alt	Shortcuts must include Ctrl or Alt
+忽略此版本	Skip this version
+忽略短音频	Ignore short audio
+恢复默认	Reset to default
+悬停迷你播放器时也可点右上角按钮切换	You can also switch with the top-right button when hovering the mini player
+悬浮	Floating
+想播放什么？	What do you want to play?
+我的主题	My themes
+我的云盘	My Cloud
+我的订阅	My subscriptions
+所有时间	All time
+所选歌曲暂无可播放的版本	No playable version of the selected songs
+所选歌曲都已在我喜欢的音乐中	All selected songs are already in Liked Songs
+所选目录不可写	The selected folder isn't writable
+所选目录不存在	The selected folder doesn't exist
+手写	Handwriting
+打开	Open
+打开歌手	Go to artist
+打开电台	Go to podcast
+打开目录	Open folder
+托盘	Tray
+扩展	Extensions
+扫描	Scan
+扫描文件夹时跳过时长不足的音频，如铃声、提示音	Skip audio that's too short when scanning, like ringtones and alert sounds
+扫描文件夹时跳过这些子文件夹	Skip these subfolders when scanning
+扫码	QR code
+扫码异常({0})	QR login error ({0})
+找不到该歌曲信息	Song info not found
+找不到该歌曲信息，无法收藏	Song info not found, can't save
+找到 {0} 项设置	{0} settings found
+拒绝	Deny
+拖动排序	Drag to reorder
+拖动调整信息卡片的顺序，关闭开关可隐藏对应卡片	Drag to reorder the info cards; turn a switch off to hide its card
+按每首歌的响度统一音量	Even out volume using each song's loudness
+换一批	Refresh
+换个关键词试试，或清除搜索查看全部设置	Try another keyword, or clear the search to see all settings
+换源	Source fallback
+换源未能获取到可用播放链接	Source fallback found no playable URL
+排序	Sort
+排序与视图	Sort & view
+排序依据	Sort by
+排序方式	Sort by
+排队中	Queued
+排除	Exclude
+排除文件夹	Excluded folders
+探索类似艺人	Explore similar artists
+接下来播放	Up next
+接口	API
+接收测试版更新	Get beta updates
+控制播放：播放、暂停、切歌、加入队列	Control playback: play, pause, skip, add to queue
+推荐	Recommended
+推荐歌单	Recommended playlists
+推荐歌曲	Recommended songs
+描边	Outline
+提供更多逐字歌词	Provides more word-by-word lyrics
+提供歌曲、歌单与搜索结果	Provides songs, playlists and search results
+提供歌词、翻译与逐字歌词	Provides lyrics, translations and word-by-word lyrics
+提供这个内容的插件已停用	The plugin that provides this content is disabled
+提供：{0}	Provides: {0}
+提示	Notice
+插件	Plugins
+插件【{0}】已存在，请选择导入方式：	Plugin [{0}] already exists. Choose how to import:
+插件内容已失效	Plugin content is no longer valid
+插件导入成功：{0}	Plugin imported: {0}
+插件已停用或已删除	Plugin disabled or removed
+插件没有返回内容	The plugin returned nothing
+插件脚本在隔离环境中运行，只能使用上面列出的权限	Plugin scripts run sandboxed and can only use the permissions listed above
+插件解析失败：{0}	Failed to parse plugin: {0}
+插件（实验性）	Plugins (experimental)
+插播相似歌曲	Insert similar song
+搜索	Search
+搜索“{0}”	Search "{0}"
+搜索你想听的	Search for what you want to hear
+搜索失败	Search failed
+搜索失败，请检查网络后重试	Search failed, check your network and try again
+搜索字体	Search fonts
+搜索歌手的歌曲	Search this artist's songs
+搜索歌曲、歌手	Search songs, artists
+搜索设置项	Search settings
+播客	Podcasts
+播客榜单	Podcast charts
+播放	Play
+播放/暂停	Play/Pause
+播放{0}	Play {0}
+播放事件	Playback events
+播放全部	Play all
+播放列表中没有歌曲且无法获取今日推荐	The queue is empty and today's picks couldn't be loaded
+播放区	Player area
+播放区遮罩 {0} → {1}	Player area overlay {0} → {1}
+播放器布局	Player layout
+播放器布局 {0} 处	Player layouts: {0}
+播放快照	Now playing snapshot
+播放最新一期	Play latest episode
+播放栏必须包含播放/暂停按钮	The player bar must include a play/pause button
+播放栏必须包含进度条	The player bar must include a progress bar
+播放每日推荐	Play daily picks
+播放热门歌曲	Play top songs
+播放组件加载失败，当前无法播放，详见日志	Playback component failed to load; playback is unavailable. See the log for details
+播放队列	Queue
+操作失败	Action failed
+操作失败，请重试	Action failed, try again
+支持对唱分边与背景和声，对下一次加载的歌词生效	Supports duet sides and background vocals; applies to the next lyrics loaded
+支持平台：	Supported platforms:
+支持深色与浅色	Supports dark and light
+支持粘贴 JS 脚本内容，或粘贴远程脚本链接（http/https）：	Paste JS script content, or a remote script link (http/https):
+收回音乐库	Collapse library
+收藏	Save
+收藏{0}	Save {0}
+收藏到歌单	Add to playlist
+收藏歌单	Save playlist
+收藏的歌单、专辑和艺人会显示在这里	Saved playlists, albums, and artists appear here
+收起	Collapse
+收起全屏歌词	Exit full-screen lyrics
+收起画像	Hide profile
+收起音乐库	Collapse library
+放大	Zoom in
+数据信息不完整，无法播放	Can't play: incomplete track info
+数据信息不完整，无法添加到下一首	Can't add to play next: incomplete track info
+数据解析失败	Couldn't parse data
+整体放大界面，松手后生效	Scale up the interface. Applies when you release the slider.
+文件不存在或无法打开	File not found or can't be opened
+文件不完整 {0}/{1}	Incomplete file: {0}/{1}
+文件为空或无法读取	File is empty or can't be read
+文件夹	Folder
+文字阴影	Text shadow
+新	New
+新发布	New releases
+新发布-翻页	New releases - pagination
+新封面	New artwork
+新建	Create
+新建歌单	Create playlist
+新建歌单默认设为隐私	Make new playlists private by default
+方卡	Square card
+无	None
+无损	Lossless
+无损 (FLAC)	Lossless (FLAC)
+无损音质 (FLAC)	Lossless audio (FLAC)
+无法使用麦克风	Microphone unavailable
+无法写入所选位置	Can't write to the selected location
+无法加载：{0}	Couldn't load: {0}
+无法在所选目录创建缓存文件夹	Can't create a cache folder in the selected location
+无法处理该图片	Can't process this image
+无法导入插件	Couldn't import plugin
+无法导入皮肤	Couldn't import skin
+无法打开所选文件	Can't open the selected file
+无法打开日志目录	Can't open the logs folder
+无法打开浏览器	Can't open browser
+无法打开浏览器，已复制发布页链接	Can't open browser. Release page link copied.
+无法打开浏览器，请手动访问 GitHub 发布页	Can't open browser. Visit the GitHub release page manually.
+无法获取播放直链	Couldn't get a direct playback URL
+无法获取播放链接	Couldn't get a playback URL
+无法解码封面	Couldn't decode artwork
+无法读取该图片，请选择 JPG 或 PNG	Can't read this image. Choose a JPG or PNG.
+无法读取该文件的标签，暂不支持编辑这种格式。	Can't read this file's tags. Editing this format isn't supported yet.
+无版权/VIP 自动换源	Auto source fallback for unavailable/VIP tracks
+无限制	Unlimited
+日	Sun
+日志	Logs
+日志文件	Log file
+日志级别	Log level
+早上	Morning
+时长	Duration
+明度	Brightness
+昨天	Yesterday
+显卡	Graphics card
+显示	Display
+显示“正在播放”	Show Now Playing
+显示上下行	Show previous and next lines
+显示主窗口	Show main window
+显示器	Monitor
+显示应用内提示	Show in-app notifications
+显示更多	Show more
+显示桌面歌词	Show desktop lyrics
+显示音乐库	Show library
+晚上	Evening
+智能过渡（实验性）	Smart transitions (experimental)
+暂停	Pause
+暂无下载任务	No downloads yet
+暂无专辑	No albums yet
+暂无专辑信息	No album info
+暂无可播放的歌曲	No playable songs
+暂无听歌排行，对方可能没有公开	No listening stats available. They may be private.
+暂无更新说明	No release notes available
+暂无歌单	No playlists yet
+暂无歌曲	No songs yet
+暂无歌词	No lyrics available
+暂无相似歌曲可插播	No similar songs to queue
+暂无艺人简介信息	No artist bio available
+暂无评论	No comments yet
+暗色	Dark
+曲风	Genre
+更多	More
+更多专辑	More albums
+更多有关《{0}》的选项	More options for {0}
+更多评论操作	More comment options
+更换	Change
+更换封面	Change artwork
+更改	Change
+更改缓存目录失败：{0}	Couldn't change cache folder: {0}
+更改网易云匹配	Change NetEase match
+更新	Update
+更早	Earlier
+最多选择 5 句	Select up to 5 lines
+最大化	Maximize
+最小化	Minimize
+最小化到托盘	Minimize to tray
+最新	Latest
+最新优先	Newest first
+最新发布	New releases
+最早优先	Oldest first
+最热	Top
+最近一周	Past week
+最近播放	Recently played
+最近播放专辑	Recently played albums
+最近播放歌单	Recently played playlists
+最近播放歌曲	Recently played songs
+最近更新	Recently updated
+最近的搜索记录	Recent searches
+有未确认的权限，重新导入插件后才能启用	Some permissions haven't been approved. Reimport the plugin to enable it.
+服务器	Server
+服务端自动选择模式	Automatic server selection
+未加入	Not added
+未命名插件	Untitled plugin
+未在 QQ 音乐找到这首歌的评论	No comments found for this song on QQ Music
+未在播放	Not playing
+未找到与“{0}”相关的内容	No results for “{0}”
+未找到匹配的歌单	No matching playlists
+未找到匹配的歌曲	No matching songs
+未找到相关相似歌曲	No similar songs found
+未找到该平台搜索服务	Search unavailable for this platform
+未播颜色	Upcoming lyrics color
+未检测到输出设备	No output devices detected
+未登录	Not logged in
+未知	Unknown
+未知专辑	Unknown album
+未知歌手	Unknown artist
+未知艺术家	Unknown artist
+未知错误	Unknown error
+未署名	Uncredited
+未获取到可用的封面上传地址	No artwork upload URL available
+未设置	Not set
+未识别到	No match found
+未返回	No response
+未配置	Not configured
+未配置可用的换源，请到 设置 › 音源与换源 中启用社区源插件或远程 UNM 服务	No source fallback configured. Enable a community source plugin or remote UNM service in Settings › Audio sources & fallback.
+本地	Local
+本地歌单	Local playlist
+本地音乐	Local music
+极高	Very high
+极高音质	Very high audio quality
+查找歌单	Find a playlist
+查看专辑	Go to album
+查看全部 {0} 条评论	View all {0} comments
+查看新版本	View new version
+查看更多	See more
+查看歌手	Go to artist
+查重失败 code={0}	Duplicate check failed: code={0}
+标准	Standard
+标准音质	Standard audio quality
+标签	Tags
+标题	Title
+样式	Style
+根据你的口味 · {0}月{1}日	Picked for you · {0}/{1}
+根据您的听歌记录统计	Based on your listening history
+根据歌单里的歌挑选	Picked from this playlist
+桌面	Desktop
+桌面「正在播放」顶部	Desktop Now Playing header
+桌面播放栏	Desktop player bar
+桌面歌词	Desktop lyrics
+桌面歌词开关	Toggle desktop lyrics
+检查更新	Check for updates
+检查更新失败，请稍后重试	Couldn't check for updates. Try again later.
+检测到同名插件	A plugin with this name already exists
+模糊	Blur
+模糊封面	Blurred artwork
+横条	Bar
+橙	Orange
+次要文字	Secondary text
+歌单	Playlist
+歌单 · {0}	Playlist · {0}
+歌单 · 听歌排行统计	Playlist · Listening stats
+歌单/专辑信息不完整，无法下载	Can't download: incomplete playlist or album info
+歌单不存在或已被移除	Playlist not found or removed
+歌单信息已更新	Playlist info updated
+歌单分类	Playlist categories
+歌单创建成功！	Playlist created
+歌单名称	Playlist name
+歌单名称已更新，简介修改失败: {0}	Playlist name updated, but couldn't update description: {0}
+歌单名称（默认：{0}）	Playlist name (default: {0})
+歌单已删除	Playlist deleted
+歌单排序已保存	Playlist order saved
+歌单收藏更新成功	Saved playlists updated
+歌单里还没有歌曲	No songs in this playlist yet
+歌手	Artist
+歌手: {0}	Artist: {0}
+歌手热门歌曲	Artist's top songs
+歌手（多位用 / 分隔）	Artists (separate with /)
+歌曲	Songs
+歌曲 · {0}	Song · {0}
+歌曲、图片、歌词与离线数据合计，超出后淘汰最久未使用的缓存	Total for songs, images, lyrics, and offline data. When full, the least recently used cache is removed.
+歌曲信息不完整，无法下载	Can't download: incomplete track info
+歌曲淡入淡出	Crossfade songs
+歌曲百科	About the song
+歌曲详情	Song details
+歌曲顺序已更新	Song order updated
+歌词	Lyrics
+歌词与翻译、音译间距	Spacing between lyrics, translations, and transliterations
+歌词副文本	Secondary lyrics
+歌词加载中	Loading lyrics
+歌词卡	Lyrics card
+歌词卡的基准字号，窗口拉宽后按比例放大	Base font size for the lyrics card. Scales up as the window widens.
+歌词字体	Lyrics font
+歌词字号	Lyrics font size
+歌词对齐	Lyrics alignment
+歌词对齐方式	Lyrics alignment
+歌词源 {0} 个	{0} lyrics sources
+歌词第二行	Second lyrics line
+歌词行间距	Lyrics line spacing
+歌词设置	Lyrics settings
+歌词预览	Lyrics preview
+正在使用「{0}」的布局	Using the {0} layout
+正在使用内置布局	Using the built-in layout
+正在准备上传	Preparing upload
+正在加载全部歌曲	Loading all songs
+正在发布到云盘	Publishing to Cloud
+正在启动	Starting
+正在扫描 {0}/{1}	Scanning {0}/{1}
+正在扫描本地音乐 {0}/{1}	Scanning local music {0}/{1}
+正在播放	Now playing
+正在播放面板信息卡片	Now Playing info cards
+正在播放：{0}	Now playing: {0}
+正在校验文件	Verifying file
+正在检查更新…	Checking for updates…
+正在生成二维码	Generating QR code
+正在聆听	Listening
+正在输出	Current output
+正在迁移缓存：{0} / {1}	Moving cache: {0} / {1}
+母带	Master
+每日推荐	Daily picks
+每日推荐暂无歌曲	No Daily picks available yet
+比例	Aspect ratio
+沉浸环绕声	Immersive surround sound
+沙盒已关闭	Sandbox closed
+没有{0}的任务	No {0} downloads
+没有写入所选位置的权限	No permission to write to the selected location
+没有匹配的字体	No matching fonts
+没有匹配的歌单	No matching playlists
+没有可上传的音频文件	No audio files to upload
+没有可下载的歌曲	No songs to download
+没有可清除的缓存	No cache to clear
+没有录到声音，请确认电脑正在播放	No audio detected. Make sure your computer is playing audio.
+没有找到相关歌曲	No songs found
+没有找到相关歌曲，换个关键词试试	No songs found. Try another search.
+没有找到相关结果	No results found
+没有找到相关设置	No settings found
+没有读取所选文件的权限	No permission to read the selected file
+没有采集到声音，请检查麦克风及系统的麦克风权限	No audio detected. Check your microphone and system microphone permissions.
+没有需要下载的歌曲：{0}	No songs need downloading: {0}
+洛雪	LX
+流光	Glow
+流畅	Smooth
+浅色	Light
+浅色主色	Light mode accent color
+浅色背景上也能看清歌词	Keep lyrics readable on light backgrounds
+测试版	Beta
+浏览	Browse
+淘汰	Eviction
+淡入淡出	Crossfade
+淡化时长	Fade duration
+深夜	Late night
+深灰	Dark gray
+深色	Dark
+深色主色	Dark mode accent color
+深蓝	Dark blue
+添加	Add
+添加到歌单	Add to playlist
+添加到音乐库	Add to library
+添加文件夹	Add folder
+添加日期	Date added
+添加本地歌单	Add local playlist
+添加歌单	Add playlist
+添加歌曲	Add songs
+添加歌曲文件	Add song files
+添加自定义主色	Add custom accent color
+清单无效	Invalid manifest
+清理	Clean up
+清空	Clear
+清空播放队列	Clear play queue
+清空最近的搜索记录	Clear recent searches
+清空识别历史	Clear recognition history
+清空队列	Clear queue
+清除	Clear
+清除失败	Couldn't clear
+清除已完成	Clear completed
+清除搜索	Clear search
+清除缓存	Clear cache
+渲染	Rendering
+渲染方式	Rendering method
+渲染方式已更改，重启后生效	Rendering method changed. Restart to apply.
+源码	Source code
+演唱字词叠加呼吸高亮微光	Add a soft, pulsing glow to words as they're sung
+灰色	Gray
+点击组合键后按下新的快捷键即可修改	Click a shortcut, then press a new key combination to change it
+点赞	Like
+热搜榜	Trending searches
+热键	Hotkeys
+热门	Popular
+热门专辑	Popular albums
+热门歌单	Popular playlists
+热门电台	Popular podcasts
+热门电台榜	Top podcasts
+版本	Version
+版本 {0}	Version {0}
+版本 {0} → {1}	Version {0} → {1}
+版权	Copyright
+特粗	Extra bold
+玫红	Magenta
+现有版本：v{0}（作者：{1}）	Current version: v{0} (by {1})
+珊瑚橙	Coral
+琥珀	Amber
+生成图片失败	Couldn't generate image
+用户	User
+用户尚未登录	User isn't logged in
+用户拒绝了写入	User denied write access
+由服务端自动轮询最优源匹配	The server automatically tries sources to find the best match
+申请上传凭证失败	Couldn't get upload credentials
+电台	Podcast
+电台榜	Podcast charts
+界面与歌词	Interface & lyrics
+界面缩放	Interface scale
+界面过渡动画	Interface animations
+登录	Log in
+登录二维码	Login QR code
+登录后即可查看云盘	Log in to view your Cloud
+登录后即可查看和上传云盘歌曲	Log in to view and upload Cloud songs
+登录后才能订阅电台	Log in to subscribe to podcasts
+登录后查看你的歌单	Log in to view your playlists
+登录后查看你订阅的电台	Log in to view your podcast subscriptions
+登录后查看订阅的电台	Log in to view subscribed podcasts
+登录失败，会话无效或网络异常，请重试	Couldn't log in. Invalid session or network error. Try again.
+登录已过期，请重新登录	Your session has expired. Log in again.
+登录成功但未获取到会话，请重试	Logged in, but couldn't retrieve your session. Try again.
+登录成功，欢迎回来，{0}！	Welcome back, {0}!
+登录成功，正在同步乐库...	Logged in. Syncing your library...
+登录成功，正在同步数据...	Logged in. Syncing data...
+登录窗口启动失败	Couldn't open login window
+登记歌曲信息失败 code={0}	Couldn't register song info: code={0}
+白色	White
+白色阴影在深色背景上呈发光效果	White shadows create a glow on dark backgrounds
+的	's
+皮肤	Skin
+皮肤（实验性）	Skins (experimental)
+目录	Folder
+目标磁盘空间不足	Not enough space on the destination disk
+直接退出	Quit immediately
+相似歌手	Similar artists
+相似歌曲漫游	Similar songs Roam
+相似艺人	Similar artists
+睡眠定时	Sleep timer
+睡眠定时 ({0})	Sleep timer ({0})
+知道了	Got it
+短于 {0} 秒	Shorter than {0} seconds
+码率	Bitrate
+硬件加速	Hardware acceleration
+确定	OK
+确定删除「{0}」吗{1}？	Delete “{0}”{1}?
+确定删除「{0}」吗？插件保存的数据也会一并删除。	Delete “{0}”? The plugin's saved data will also be deleted.
+确定清空全部 {0} 条识别记录？	Clear all {0} recognition records?
+确定要从歌单中删除选中的 {0} 首歌曲吗？	Remove the {0} selected songs from this playlist?
+确定要删除「{0}」吗？删除后无法恢复。	Delete “{0}”? This can't be undone.
+确定要删除歌单「{0}」吗？	Delete playlist “{0}”?
+确定要删除这条评论吗？删除后无法恢复。	Delete this comment? This can't be undone.
+确定要清空播放队列吗？当前播放的歌曲会保留。	Clear the play queue? The current song will stay.
+确定要移除歌单「{0}」吗？磁盘上的音乐文件不会被删除。	Remove playlist “{0}”? Music files on disk will be kept.
+社区源	Community sources
+社区源 ({0})	Community source ({0})
+社区源优先	Prefer community sources
+社区源（LX）插件	Community source (LX) plugins
+离线数据	Offline data
+秒	Seconds
+移除	Remove
+移除文件夹	Remove folder
+移除本地歌单	Remove local playlist
+移除歌单	Remove playlist
+稍后	Later
+空间	Storage
+穿透	Click-through
+立即扫描	Scan now
+立即播放	Play now
+竖排书笺	Vertical verse
+第 {0} 秒命中 · 原曲 {1}	Matched at {0}s · Original: {1}
+第二行	Second line
+等共 {0} 项	and more, {0} items total
+等宽	Monospace
+等待上传	Waiting to upload
+等待扫码	Waiting for scan
+等待自动匹配	Waiting for auto-match
+简介	Description
+简介已更新，歌单名称修改失败: {0}	Description updated, but couldn't rename playlist: {0}
+米白	Ivory
+类型	Type
+粉丝	Followers
+粉色	Pink
+粗体	Bold
+粘贴脚本或链接导入	Paste a script or link to import
+精简	Compact
+系统与窗口	System & window
+系统内录启动失败，请重试或改用麦克风	Couldn't capture system audio. Try again or use the microphone.
+系统卡片不可用，已改用全局媒体键	System media card unavailable. Using global media keys.
+系统声音	System audio
+系统媒体控制（媒体键与系统播放卡片）	System media controls (media keys and Now Playing card)
+系统播放	System playback
+系统默认	System default
+紧凑列表	Compact list
+紫	Purple
+紫罗兰	Violet
+紫色	Purple
+纠正匹配	Fix match
+纯音乐	Instrumental
+纯音乐，请欣赏	Instrumental. Enjoy the music.
+经典	Classic
+绑定后会自动收录文件夹内的歌曲	Songs in the linked folder are added automatically
+绑定文件夹（可选）	Link folder (optional)
+继续	Resume
+继续播放	Resume playback
+继续收听	Continue listening
+绿	Green
+绿色	Green
+缓存	Cache
+缓存容量上限	Cache size limit
+缓存目录	Cache folder
+缓存目录已是当前使用的位置	Already using this cache folder
+缓存目录已更改，重启后生效	Cache folder changed. Restart to apply.
+编辑歌单信息	Edit playlist info
+编辑歌曲信息	Edit song info
+缩放	Scale
+缩放歌词	Scale lyrics
+缺少搜索词	Missing search term
+缺少有效的 {0}	Missing valid {0}
+缺少歌单名称	Missing playlist name
+网易云	NetEase
+网易云音乐	NetEase Cloud Music
+网易红	NetEase red
+网络异常，请检查网络后重试	Network error. Check your connection and try again.
+网络异常，请重试	Network error. Try again.
+网络繁忙，请稍后重试	Network busy. Try again later.
+网络连接失败，请检查网络后重试	Couldn't connect. Check your network and try again.
+网页	Web
+罗马音	Romanization
+置顶	Pin
+置顶歌单	Pin playlist
+翠绿	Emerald
+翻译	Translation
+耳机	Headphones
+背景	Background
+背景不透明度	Background opacity
+背景图	Background image
+脚本	Script
+脚本内容为空	Script is empty
+脚本执行出错	Script execution error
+脚本执行失败：{0}	Script failed: {0}
+脚本文本或以 http(s):// 开头的下载链接	Script text or a download link starting with http(s)://
+脚本解析失败，请检查脚本语法	Couldn't parse script. Check its syntax.
+自动	Auto
+自动切歌时前后两首交叉淡化，手动切歌不受影响	Crossfade between songs when they change automatically. Manual skips aren't affected.
+自动匹配中断	Auto-match interrupted
+自动检查更新	Automatically check for updates
+自动隐藏顶栏	Auto-hide top bar
+自动（Metal）	Auto (Metal)
+自动（最近启用的插件）	Auto (most recently enabled plugin)
+自启	Launch at startup
+自定义	Custom
+自定义 · 点角标修改	Custom · Click the corner badge to edit
+自定义分钟数	Custom minutes
+自定义插件	Custom plugin
+自定义浅色主色	Custom light mode accent
+自定义深色主色	Custom dark mode accent
+自定义顺序	Custom order
+至今播放 	Played so far:
+色相	Hue
+艺人	Artist
+艺人专辑	Artist albums
+节目	Episode
+节目榜	Episode charts
+获取上传服务器地址失败	Couldn't get upload server address
+获取下载链接失败	Couldn't get download link
+获取关注列表失败	Couldn't load following list
+获取封面上传凭证失败	Couldn't get artwork upload credentials
+获取心动推荐失败	Couldn't load Heartbeat recommendations
+获取用户信息失败	Couldn't load user info
+获取粉丝列表失败	Couldn't load followers
+获奖成就	Awards
+蓝	Blue
+蓝牙	Bluetooth
+蓝色	Blue
+补全歌单曲目失败	Couldn't load the full playlist
+衬线	Serif
+覆盖并应用	Replace and apply
+覆盖更新	Replace and update
+视图模式	View mode
+解析失败：{0}	Couldn't parse: {0}
+解析并导入	Parse and import
+解锁	Unlock
+解除匹配	Unlink match
+订阅	Subscribe
+订阅电台	Subscribe to podcast
+让麦克风听一段正在播放的音乐	Let your microphone listen to the music playing
+设为隐私歌单	Make playlist private
+设置	Settings
+设置 {0} 项	{0} settings
+访问网络	Access the network
+评论	Comments
+评论 ({0})	Comments ({0})
+评论详情	Comment details
+识别到的歌曲会出现在这里	Recognized songs appear here
+识别历史	Recognition history
+识别失败	Couldn't recognize song
+识别已停止	Recognition stopped
+识别电脑正在播放的声音	Identify music playing on your computer
+识别电脑正在播放的声音 · {0}	Identify music playing on your computer · {0}
+识别组件加载失败，详见日志	Couldn't load recognition component. See logs for details.
+试听	Preview
+该专辑没有可下载的歌曲	No downloadable songs in this album
+该专辑没有可播放的歌曲	No playable songs in this album
+该歌单没有可下载的歌曲	No downloadable songs in this playlist
+该歌单没有可播放的歌曲	No playable songs in this playlist
+该歌手暂无热门歌曲	No top songs available for this artist
+该歌曲不支持收藏	This song can't be saved
+该音质仅支持试听，需要 VIP 或购买后才能完整下载	Only a preview is available at this quality. Get VIP or purchase the song to download it in full.
+该颜色与背景对比度较低，按钮和图标可能不易看清	This color has low contrast with the background. Buttons and icons may be hard to see.
+详细	Detailed
+语种	Language
+语言	Language
+说点什么...	Say something...
+请先导入源脚本	Import a source script first
+请先播放一首歌曲	Play a song first
+请先登录	Log in first
+请先登录账号	Log in first
+请在弹出的官方页面中完成登录，完成后将自动同步并关闭窗口	Log in on the official page that opens. Your data will sync and the window will close automatically.
+请在系统设置的隐私设置中允许应用访问麦克风	Allow microphone access in your system's privacy settings
+请按下组合键…	Press a key combination…
+请求失败	Request failed
+请输入 #RRGGBB 格式的颜色	Enter a color in #RRGGBB format
+请输入 1-1439	Enter 1–1439
+读取你的歌单与红心列表	Read your playlists and Liked songs
+读取失败：{0}	Couldn't read: {0}
+读取当前播放的歌曲与进度	Read the current song and playback position
+调试	Debug
+账户	Account
+超清母带	Ultra HD master
+超过了 {0}% 的用户	More than {0}% of users
+越详细越利于排查问题，立即生效	More detail helps troubleshoot issues. Applies immediately.
+跟随系统	Use system setting
+路径	Path
+跳过 {0} 首已下载	Skipped {0} already downloaded songs
+跳过歌曲首尾的静音段	Skip silence at the start and end of songs
+软件渲染	Software rendering
+较高	High
+辅助文字	Supporting text
+输入关键词搜索要添加的歌曲	Search for songs to add
+输入歌名或歌手	Enter a song or artist
+输出设备	Output device
+输出设备已断开，已切回系统默认	Output device disconnected. Switched to system default.
+输出设备：{0}	Output device: {0}
+迁移	Move
+过渡	Transition
+过滤	Filter
+运行中	Running
+运行中，最近一次出错：{0}	Running. Last error: {0}
+返回评论	Back to comments
+还原	Restore
+还原主窗口	Restore main window
+还没有{0}播放记录	No {0} listening history yet
+还没有下载的歌曲	No downloaded songs yet
+还没有关注任何人	Not following anyone yet
+还没有关注歌手的新作	No new releases from artists you follow
+还没有安装插件	No plugins installed yet
+还没有本地歌曲，先添加一个本地歌单吧	No local songs yet. Add a local playlist to get started.
+还没有歌曲，添加文件夹或歌曲文件即可收录	No songs yet. Add a folder or song files to get started.
+还没有粉丝	No followers yet
+还没有自建歌单	You haven't created any playlists yet
+还没有订阅的电台，在电台详情页点「订阅」，更新会出现在这里	No podcast subscriptions yet. Select Subscribe on a podcast's page to see updates here.
+这个分类下暂时没有歌单	No playlists in this category yet
+这个分类暂时没有电台	No podcasts in this category yet
+这个插件可以修改你的网易云账号，只安装你信任的插件	This plugin can make changes to your NetEase account. Only install plugins you trust.
+这些歌曲已在上传队列中	These songs are already queued for upload
+这首歌你已播放 	You've played this song
+这首歌暂时无法播放	This song can't be played right now
+进行中	In progress
+远程	Remote
+远程UNM ({0})	Remote UNM ({0})
+远程服务接口 (Base URL)	Remote service endpoint (base URL)
+连续多首无法播放，已停止	Several songs couldn't play in a row. Playback stopped.
+迷你	Mini
+迷你播放器	Mini player
+退出	Quit
+退出全屏	Exit full screen
+退出多选	Exit selection mode
+退出心动模式	Exit Heartbeat mode
+退出登录	Log out
+退出相似歌曲漫游	Exit similar songs Roam
+选取文件 (.js/.zip/.7z)	Choose file (.js/.zip/.7z)
+选择	Choose
+选择 LX 插件脚本或压缩包	Choose an LX plugin script or archive
+选择下载目录	Choose download folder
+选择封面	Choose artwork
+选择插件包	Choose plugin package
+选择歌单封面	Choose playlist artwork
+选择歌曲文件	Choose song files
+选择歌词 · 已选 {0}/5，原文与翻译可分别点选	Choose lyrics · {0}/5 selected. Select original lines and translations separately.
+选择皮肤包	Choose skin package
+选择缓存目录	Choose cache folder
+选择要导入的脚本	Choose a script to import
+选择要排除的文件夹	Choose a folder to exclude
+选择音乐文件夹	Choose music folder
+透明	Transparent
+逐字	Word by word
+逐字歌词唱过的部分与普通歌词的当前行	Sung words in synced lyrics and the current line in standard lyrics
+逐字歌词流光动效	Word-by-word lyrics glow
+逐字高亮	Word-by-word highlighting
+配置换源服务接口	Configure source fallback endpoint
+配置接口	Configure endpoint
+配色	Color scheme
+酷我	Kuwo
+酷我音乐	Kuwo
+酷狗	Kugou
+酷狗音乐	Kugou
+重名 {0} 个待确认	{0} name conflicts to review
+重启 Melodia 后生效	Restart Melodia to apply
+重命名	Rename
+重命名歌单	Rename playlist
+重新打开登录窗口	Reopen login window
+重新扫描	Rescan
+重新扫描本地音乐	Rescan local music
+重试	Retry
+锁定	Lock
+锁定/解锁桌面歌词	Lock/unlock desktop lyrics
+锁定后鼠标穿透歌词窗口；也可在托盘菜单或双击歌词切换	Lock to let clicks pass through the lyrics window. Toggle from the tray menu or by double-clicking lyrics.
+锁定桌面歌词	Lock desktop lyrics
+锁定歌词	Lock lyrics
+锐利	Sharp
+闪烁	Flicker
+阴影	Shadow
+阴影强度	Shadow strength
+阴影模糊	Shadow blur
+阴影颜色	Shadow color
+降序	Descending
+随机播放	Shuffle
+随机播放已关闭	Shuffle off
+随机播放已开启	Shuffle on
+随机播放来源：{0}	Shuffle source: {0}
+隐私	Privacy
+隐私歌单	Private playlist
+隐藏	Hide
+隐藏“正在播放”	Hide Now Playing
+需要更高会员等级才能下载该音质	A higher membership tier is required to download at this quality
+需要的权限	Required permissions
+青色	Cyan
+静音	Mute
+面板	Panel
+音乐	Music
+音乐库	Library
+音乐新作	New music
+音源 {0} 个	{0} audio sources
+音源与换源	Audio sources & fallback
+音质	Audio quality
+音质: {0}	Audio quality: {0}
+音轨号	Track number
+音量	Volume
+音量减	Volume down
+音量加	Volume up
+音量平衡（实验性）	Volume normalization (experimental)
+音频	Audio
+页面 {0} 个	{0} pages
+页面头部	Page header
+页面描述无效：{0}	Invalid page definition: {0}
+项目主页	Project homepage
+预发布	Pre-release
+预设	Preset
+颜色	Color
+饱和度	Saturation
+首页	Home
+高亮	Highlight
+高清环绕声	HD surround sound
+麦克风	Microphone
+麦克风不可用，可能未连接或正被其他应用占用	Microphone unavailable. It may be disconnected or in use by another app.
+黑体	Sans serif
+黑屏	Black screen
+黑胶	Vinyl
+黑色	Black
+默认	Default
+默认样式	Default style
+默认顺序	Default order
+鼠标无操作或移出窗口后隐藏，移动鼠标重新呼出	Hide when the pointer is idle or leaves the window. Move it to show again.
+（测试版）	(Beta)
+（重启后生效）	(Restart to apply)
+，{0} 首失败	, {0} songs failed
+，一个	, a
+，你第一次听到这首歌。	, you first heard this song.
+，删除后恢复默认主题	, restoring the default theme

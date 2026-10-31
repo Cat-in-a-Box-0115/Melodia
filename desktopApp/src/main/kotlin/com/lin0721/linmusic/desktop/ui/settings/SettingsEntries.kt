@@ -798,6 +798,7 @@ internal fun settingsEntries(
             }
         )
 
+        add(LanguageSetting.entry(SettingsCategory.System))
         add(
             rowEntry(
                 "closeAction", SettingsCategory.System, "关闭主窗口时",

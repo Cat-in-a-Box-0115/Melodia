@@ -47,6 +47,27 @@ tasks.processResources {
     }
 }
 
+// 英文界面：打包前改写桌面端与 shared 的编译产物，让词典里的中文文案走查表，见 buildSrc/src/main/kotlin/MelodiaI18n.kt
+val i18nDictionary = file("src/main/resources/i18n/en.tsv")
+fun Jar.localizeStrings() {
+    inputs.file(i18nDictionary)
+    doLast {
+        val count = MelodiaI18n.rewriteJar(archiveFile.get().asFile, MelodiaI18n.loadKeys(i18nDictionary))
+        logger.lifecycle("i18n: ${archiveFile.get().asFile.name} 改写 $count 处")
+    }
+}
+tasks.named<Jar>("jar") { localizeStrings() }
+project(":shared").tasks.matching { it.name == "desktopJar" }.configureEach { (this as Jar).localizeStrings() }
+
+// 列出全部中文常量与模板（含用途标记），输出到 build/i18n/strings.tsv
+tasks.register("extractI18nStrings") {
+    val jars = listOf(tasks.named<Jar>("jar"), project(":shared").tasks.named<Jar>("desktopJar"))
+    dependsOn(jars)
+    doLast {
+        MelodiaI18n.extract(jars.map { it.get().archiveFile.get().asFile }, layout.buildDirectory.file("i18n/strings.tsv").get().asFile)
+    }
+}
+
 // 与 Android 端共用发版参数，保证两端版本号一致
 val desktopVersion = (findProperty("releaseVersionName") as String?) ?: "1.0.0"
 
