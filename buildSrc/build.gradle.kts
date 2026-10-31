@@ -1,0 +1,8 @@
+plugins {
+    `kotlin-dsl`
+}
+
+dependencies {
+    implementation("org.ow2.asm:asm:9.8")
+    implementation("org.ow2.asm:asm-tree:9.8")
+}
