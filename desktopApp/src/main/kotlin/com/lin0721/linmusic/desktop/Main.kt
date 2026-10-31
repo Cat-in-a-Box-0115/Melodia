@@ -97,6 +97,7 @@ import com.lin0721.linmusic.desktop.ui.shell.rememberFullscreenState
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.desktop.ui.theme.SystemDarkTheme
 import com.lin0721.linmusic.desktop.ui.theme.rememberDesktopPalette
+import com.lin0721.linmusic.desktop.ui.tray.MacDockMenu
 import com.lin0721.linmusic.desktop.ui.tray.TrayHost
 import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
 import com.lin0721.linmusic.desktop.ui.tray.isTraySupported
@@ -166,9 +167,15 @@ fun main() {
     ) {
         exitProcess(0)
     }
+    val settingsRequests = Channel<String>(Channel.CONFLATED)
     MacAppEvents.install(
         onReopen = { activationRequests.trySend(Unit) },
-        onQuit = { quitRequests.trySend(Unit) }
+        onQuit = { quitRequests.trySend(Unit) },
+        // 空分区名表示只打开设置页、不定位
+        onPreferences = {
+            activationRequests.trySend(Unit)
+            settingsRequests.trySend("")
+        }
     )
     // 须先于任何缓存目录的读取与缓存对象创建
     DesktopCacheRoot.configure(DesktopPreferences(PreferencesStores.get(DesktopPaths.preferencesFile(DesktopPreferences.STORE_NAME))))
@@ -210,7 +217,6 @@ fun main() {
     val windowEffects = koin.get<WindowEffects>()
     val taskbarThumbnail = koin.get<TaskbarThumbnailService>()
     val searchFocusRequests = Channel<Unit>(Channel.CONFLATED)
-    val settingsRequests = Channel<String>(Channel.CONFLATED)
     val loginRequests = Channel<Unit>(Channel.CONFLATED)
     // 系统媒体卡片可用时由它接管媒体键，否则回退全局热键
     val mediaSessionActive = mediaSession.start()
@@ -377,7 +383,18 @@ fun main() {
 
         val appIcon = remember { loadAppIcon() }
         val trackText = nowPlaying?.let { "${it.title} - ${it.artist}" }
-        TrayHost(
+        if (isMac) MacDockMenu(
+            listOfNotNull(
+                TrayMenuEntry.Action(if (isPlaying) "暂停" else "播放", controller::togglePlayPause),
+                TrayMenuEntry.Action("上一首", controller::skipToPrevious),
+                TrayMenuEntry.Action("下一首", controller::playNext),
+                TrayMenuEntry.Divider,
+                TrayMenuEntry.Action("迷你播放器", enterMiniPlayer),
+                TrayMenuEntry.Toggle("桌面歌词", showDesktopLyric, setDesktopLyric),
+                TrayMenuEntry.Toggle("锁定桌面歌词", isLyricLocked, setLyricLocked)
+                    .takeIf { windowEffects.supportsClickThrough }
+            )
+        ) else TrayHost(
             tooltip = trackText?.let { "Melodia - $it" } ?: "Melodia",
             header = trackText?.let { "正在播放：$it" },
             entries = listOfNotNull(

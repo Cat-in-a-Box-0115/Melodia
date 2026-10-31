@@ -804,7 +804,7 @@ internal fun settingsEntries(
                 keywords = listOf("关闭", "托盘", "退出", "最小化")
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CloseOption("最小化到托盘", closeAction == CloseAction.TRAY) {
+                    CloseOption(if (isMac) "保留在程序坞" else "最小化到托盘", closeAction == CloseAction.TRAY) {
                         desktop.updateCloseAction(CloseAction.TRAY)
                     }
                     CloseOption("直接退出", closeAction == CloseAction.EXIT) {
