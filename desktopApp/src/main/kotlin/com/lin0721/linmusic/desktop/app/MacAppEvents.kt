@@ -11,6 +11,7 @@ object MacAppEvents {
 
     fun install(onReopen: () -> Unit, onQuit: () -> Unit) {
         if (!System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) return
+        MacTrayEventQueue.install()
         runCatching {
             val desktop = Desktop.getDesktop()
             // 主窗口隐藏到后台后，点击程序坞图标重新显示
