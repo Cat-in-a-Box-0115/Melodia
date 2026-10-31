@@ -99,7 +99,7 @@ jobs:
   macos:
     needs: sync
     if: needs.sync.outputs.skip != 'true'
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/download-artifact@v4
         with:
