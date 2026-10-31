@@ -94,6 +94,7 @@ import com.lin0721.linmusic.desktop.ui.miniplayer.MiniPlayerInit
 import com.lin0721.linmusic.desktop.ui.miniplayer.MiniPlayerWindow
 import com.lin0721.linmusic.desktop.ui.settings.SettingsCategory
 import com.lin0721.linmusic.desktop.ui.shell.CanvasClearColorEffect
+import com.lin0721.linmusic.desktop.ui.shell.KeepFullscreenOnFocusLoss
 import com.lin0721.linmusic.desktop.ui.shell.MelodiaDesktopApp
 import com.lin0721.linmusic.desktop.ui.shell.TaskbarThumbnailEffect
 import com.lin0721.linmusic.desktop.ui.shell.WindowChromeEffect
@@ -566,6 +567,7 @@ fun main(args: Array<String>) {
             }
             // 全屏与最大化一样不要圆角和边框线
             WindowChromeEffect(windowEffects, maximized = windowState.placement != WindowPlacement.Floating, palette = palette)
+            KeepFullscreenOnFocusLoss(windowState)
             CanvasClearColorEffect(palette.windowBackground)
             TaskbarThumbnailEffect(taskbarThumbnail, controller)
             if (backdropHost != null && pluginBackdrop != null) {
