@@ -194,7 +194,6 @@ fun WindowScope.TitleBar(
                 Modifier.padding(start = if (isMac) macTrafficLightsInset() else 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SidePaneToggle(left = true)
                 NavArrow(Icons.AutoMirrored.Rounded.ArrowBackIos, "后退", canGoBack, onBack)
                 NavArrow(Icons.AutoMirrored.Rounded.ArrowForwardIos, "前进", canGoForward, onForward)
             }
@@ -228,7 +227,6 @@ fun WindowScope.TitleBar(
             }
             Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
                 rememberPluginCommands(PluginMenuLocation.TOOLBAR).forEach { item -> PluginToolbarButton(item) }
-                SidePaneToggle(left = false)
                 CloudUploadsButton(cloudMusic)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
                 AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)

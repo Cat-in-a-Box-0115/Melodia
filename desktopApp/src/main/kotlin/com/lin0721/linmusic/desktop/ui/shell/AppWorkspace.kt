@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,12 +69,13 @@ internal fun Workspace(
     val lyricsView = state.lyricsView
     val dockOpen = state.dockOpen
     val dockOverlay = state.dockOverlay
-    BoxWithConstraints(modifier) {
+    val edgeHover = remember { EdgeHoverState() }
+    BoxWithConstraints(modifier.trackEdgeHover(edgeHover)) {
         val available = maxWidth - DesktopDimens.PaneGap * 2
         // 无曲目时下载面板与歌单评论也要能打开，右侧栏只承载它们
         val hasTrack = hasNowPlaying || dockOverlay == DockOverlay.Downloads || dockOverlay == DockOverlay.PlaylistComments
-        // 右侧栏隐藏时按无曲目排版，打开下载、队列等面板时照常出现
-        val dockShown = hasTrack && (!SidePanes.dockHidden || dockOverlay != null)
+        // 收起的侧栏完全让出空间，指针贴近边缘时才浮出拉手
+        val dockShown = hasTrack && (dockOpen || dockOverlay != null)
         val libraryHidden = SidePanes.libraryHidden
         val measure = pane.measure(available, dockShown, dockOpen, libraryHidden)
         val dockState = rememberNowPlayingDockState(dockShown, dockOpen, measure.dockOpenWidth, pane.resizing)
@@ -95,7 +97,14 @@ internal fun Workspace(
                     isLoggedIn = LocalDesktopNavigator.current.isLoggedIn,
                     onLoginClick = { state.showLogin = true },
                     onItemClick = state::openLibraryItem,
-                    onModeChange = state::setLibraryMode,
+                    // 收起按钮改为完全隐藏，窄条形态仍可拖动缝隙得到
+                    onModeChange = { mode ->
+                        if (mode == LibraryMode.RAIL && pane.libraryMode == LibraryMode.DEFAULT) {
+                            SidePanes.hideLibrary()
+                        } else {
+                            state.setLibraryMode(mode)
+                        }
+                    },
                     viewMode = pane.libraryViewMode,
                     onViewModeChange = state::setLibraryViewMode,
                     onFilterToggle = state::toggleLibraryFilter,
@@ -161,6 +170,13 @@ internal fun Workspace(
                 )
             }
         }
+        EdgeRevealTabs(
+            hover = edgeHover,
+            leftHidden = libraryHidden && !lyricsView.isOpen,
+            rightHidden = hasTrack && !dockShown && !lyricsView.isOpen,
+            onShowLeft = SidePanes::showLibrary,
+            onShowRight = { state.setDockOpen(true) }
+        )
         // 盖住整个工作区的全屏歌词，收起后原样露出下层
         LyricsViewOverlay(
             state = lyricsView,
