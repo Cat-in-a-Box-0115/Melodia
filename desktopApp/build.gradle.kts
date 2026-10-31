@@ -351,8 +351,11 @@ compose.desktop {
                 dockName = "Melodia"
                 appCategory = "public.app-category.music"
                 // 打包的 libmpv 来自本机 Homebrew，最低系统版本跟随构建机
-                minimumSystemVersion = providers.exec { commandLine("sw_vers", "-productVersion") }
-                    .standardOutput.asText.get().trim().substringBefore('.') + ".0"
+                // sw_vers 只在 macOS 上存在，其他平台配置阶段不能调用
+                if (isMacHost) {
+                    minimumSystemVersion = providers.exec { commandLine("sw_vers", "-productVersion") }
+                        .standardOutput.asText.get().trim().substringBefore('.') + ".0"
+                }
                 infoPlist {
                     // 听歌识曲需要麦克风，缺少用途说明时系统会拒绝录音
                     extraKeysRawXml = """
