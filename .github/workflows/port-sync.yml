@@ -1,0 +1,194 @@
+name: Port sync & release
+
+# 每天把本分支（macOS 适配、侧栏隐藏、英文界面）的提交重放到上游 dev 最新代码上，
+# 打 macOS 与 Windows 安装包并发布 Release。分支本身不被改写：重放只发生在 CI 工作区里，
+# 上游变化与本分支冲突时开 issue 等人工合并，不发布。
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  push:
+    branches: [feat/macos-desktop]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Release even if nothing changed'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: port-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: https://github.com/rinchao0721/Melodia.git
+  UPSTREAM_BRANCH: dev
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.plan.outputs.skip }}
+      tag: ${{ steps.plan.outputs.tag }}
+      version: ${{ steps.plan.outputs.version }}
+      upstream_tag: ${{ steps.plan.outputs.upstream_tag }}
+      upstream_sha: ${{ steps.plan.outputs.upstream_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/macos-desktop
+          fetch-depth: 0
+
+      - name: Replay port commits onto upstream
+        id: rebase
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "port-sync"
+          git config user.email "port-sync@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --tags upstream "$UPSTREAM_BRANCH"
+          if ! git rebase "upstream/$UPSTREAM_BRANCH"; then
+            CONFLICTS=$(git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/')
+            STOPPED=$(git log -1 --format='%h %s' REBASE_HEAD 2>/dev/null || echo unknown)
+            git rebase --abort
+            TITLE="Upstream sync needs a manual merge"
+            BODY=$(printf 'Replaying the port onto `%s` (%s) stopped at:\n\n`%s`\n\nConflicting files:\n%s\n\nRun locally:\n```\ngit fetch upstream && git rebase upstream/%s\n```\nResolve, then push `feat/macos-desktop`. Run: %s' \
+              "$UPSTREAM_BRANCH" "$(git rev-parse --short "upstream/$UPSTREAM_BRANCH")" "$STOPPED" "$CONFLICTS" "$UPSTREAM_BRANCH" \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+            EXISTING=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body "$BODY"
+            else
+              gh issue create --title "$TITLE" --body "$BODY"
+            fi
+            exit 1
+          fi
+          git branch -f port HEAD
+          git bundle create port.bundle port
+
+      - name: Decide whether to release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          UPSTREAM_SHA=$(git rev-parse --short=8 "upstream/$UPSTREAM_BRANCH")
+          PORT_SHA=$(git rev-parse --short=8 "origin/feat/macos-desktop")
+          UPSTREAM_TAG=$(git describe --tags --abbrev=0 --match 'v*.*.*' "upstream/$UPSTREAM_BRANCH")
+          AHEAD=$(git rev-list --count "$UPSTREAM_TAG..upstream/$UPSTREAM_BRANCH")
+          VERSION=${UPSTREAM_TAG#v}
+          TAG="port-${UPSTREAM_TAG}+${AHEAD}-${PORT_SHA}"
+          SKIP=false
+          if gh release view "$TAG" >/dev/null 2>&1 && [ "$FORCE" != "true" ]; then SKIP=true; fi
+          {
+            echo "skip=$SKIP"; echo "tag=$TAG"; echo "version=$VERSION"
+            echo "upstream_tag=$UPSTREAM_TAG+$AHEAD"; echo "upstream_sha=$UPSTREAM_SHA"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release $TAG (skip=$SKIP)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: port.bundle
+          retention-days: 1
+
+  macos:
+    needs: sync
+    if: needs.sync.outputs.skip != 'true'
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Check out replayed source
+        run: git clone -q -b port port.bundle src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install libmpv
+        run: brew install mpv dylibbundler
+      - name: Build DMG
+        working-directory: src
+        run: ./gradlew :desktopApp:packageReleaseDmg -PreleaseVersionName=${{ needs.sync.outputs.version }} --no-daemon
+      - name: Collect
+        run: |
+          mkdir dist
+          cp src/desktopApp/build/compose/binaries/main-release/dmg/*.dmg "dist/Melodia-${{ needs.sync.outputs.tag }}-macos-arm64.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+          retention-days: 7
+
+  windows:
+    needs: sync
+    if: needs.sync.outputs.skip != 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Check out replayed source
+        run: git clone -q -b port port.bundle src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build installer and zip
+        working-directory: src
+        run: |
+          ./gradlew :desktopApp:packageReleaseZip :desktopApp:packageReleaseSetup \
+            -PreleaseVersionName=${{ needs.sync.outputs.version }} \
+            -PrequireSmtc=true -PrequireUninstaller=true --no-daemon
+      - name: Collect
+        run: |
+          OUT=src/desktopApp/build/compose/binaries/main-release
+          mkdir dist
+          cp "$OUT"/zip/*.zip "dist/Melodia-${{ needs.sync.outputs.tag }}-windows-x64.zip"
+          cp "$OUT"/setup/*.exe "dist/Melodia-${{ needs.sync.outputs.tag }}-windows-x64-setup.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+          retention-days: 7
+
+  release:
+    needs: [sync, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: '{macos,windows}'
+          merge-multiple: true
+      - name: Release notes
+        run: |
+          cat > notes.md <<EOF
+          Melodia built from upstream \`${UPSTREAM_BRANCH}\` at **${{ needs.sync.outputs.upstream_tag }}** (\`${{ needs.sync.outputs.upstream_sha }}\`) plus this fork's changes:
+
+          - Native macOS (Apple Silicon) support: system traffic lights, Dock menu with playback controls, Melodia › Settings… (⌘,)
+          - Fully hideable side panels with edge tabs that appear when the pointer nears the window edge
+          - English UI: Settings › System › 语言 / Language (restart to apply)
+
+          **macOS:** the app isn't notarized. After copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/Melodia.app\` once if macOS says it's damaged or can't be opened.
+          **Windows:** unsigned; on a SmartScreen prompt choose More info › Run anyway.
+          EOF
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.sync.outputs.tag }}
+          name: Melodia port ${{ needs.sync.outputs.upstream_tag }}
+          target_commitish: feat/macos-desktop
+          body_path: notes.md
+          prerelease: true
+          make_latest: true
+          files: dist/*
