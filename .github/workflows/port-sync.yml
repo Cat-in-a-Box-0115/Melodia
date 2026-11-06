@@ -1,7 +1,7 @@
 name: Port sync & release
 
 # 每天把本分支（macOS 适配、侧栏隐藏、英文界面）的提交重放到上游 dev 最新代码上，
-# 打 macOS 与 Windows 安装包并发布 Release。分支本身不被改写：重放只发生在 CI 工作区里，
+# 打 Android、macOS 与 Windows 安装包并发布 Release。分支本身不被改写：重放只发生在 CI 工作区里，
 # 上游变化与本分支冲突时开 issue 等人工合并，不发布。
 on:
   schedule:
@@ -83,7 +83,9 @@ jobs:
           VERSION=${UPSTREAM_TAG#v}
           TAG="port-${UPSTREAM_TAG}+${AHEAD}-${PORT_SHA}"
           SKIP=false
-          if gh release view "$TAG" >/dev/null 2>&1 && [ "$FORCE" != "true" ]; then SKIP=true; fi
+          # Rebuild until the release has every package, so a day without a Mac runner gets filled in later
+          ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if [ "$FORCE" != "true" ] && echo "$ASSETS" | grep -q '\.dmg$' && echo "$ASSETS" | grep -q '\.apk$'; then SKIP=true; fi
           {
             echo "skip=$SKIP"; echo "tag=$TAG"; echo "version=$VERSION"
             echo "upstream_tag=$UPSTREAM_TAG+$AHEAD"; echo "upstream_sha=$UPSTREAM_SHA"
@@ -96,10 +98,65 @@ jobs:
           path: port.bundle
           retention-days: 1
 
+  android:
+    needs: sync
+    if: needs.sync.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Check out replayed source
+        run: git clone -q -b port port.bundle src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Write signing key
+        env:
+          KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: printf %s "$KEYSTORE" | base64 -d > src/melodia-release.jks
+      - name: Build APK
+        working-directory: src
+        env:
+          RELEASE_STORE_FILE: melodia-release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleRelease \
+            -PreleaseVersionName=${{ needs.sync.outputs.version }} \
+            -PreleaseVersionCode=$(( $(date +%s) / 60 )) \
+            -PreleaseApplicationId=com.lin0721.linmusic.port \
+            --no-daemon
+      # Missing signing secrets silently fall back to a debug key, which would break updates
+      - name: Check signature
+        run: |
+          APK=src/app/build/outputs/apk/release/Melodia-v${{ needs.sync.outputs.version }}-release.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -1)/apksigner
+          DN=$("$APKSIGNER" verify --print-certs "$APK" | grep -m1 'certificate DN')
+          echo "$DN"
+          if echo "$DN" | grep -qi "Android Debug"; then exit 1; fi
+      - name: Remove signing key
+        if: always()
+        run: rm -f src/melodia-release.jks
+      - name: Collect
+        run: |
+          mkdir dist
+          cp src/app/build/outputs/apk/release/Melodia-v${{ needs.sync.outputs.version }}-release.apk "dist/Melodia-${{ needs.sync.outputs.tag }}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+          retention-days: 7
+
   macos:
     needs: sync
     if: needs.sync.outputs.skip != 'true'
     runs-on: macos-15
+    # GitHub often has no Mac runner free; that must not block the other packages
+    continue-on-error: true
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -163,13 +220,14 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [sync, macos, windows]
+    needs: [sync, android, macos, windows]
+    if: always() && needs.sync.result == 'success' && needs.sync.outputs.skip != 'true' && needs.android.result == 'success' && needs.windows.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: '{macos,windows}'
+          pattern: '{android,macos,windows}'
           merge-multiple: true
       - name: Release notes
         run: |
@@ -180,7 +238,10 @@ jobs:
           - Fully hideable side panels with edge tabs that appear when the pointer nears the window edge
           - English UI: Settings › System › 语言 / Language (restart to apply)
 
-          **macOS:** the app isn't notarized. After copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/Melodia.app\` once if macOS says it's damaged or can't be opened.
+          - Android: fixes FLAC songs playing at double speed with noise on Samsung phones
+
+          **Android:** installs as a separate app next to the official Melodia. Updates install over the previous port build.
+          **macOS:** if the DMG is missing, GitHub had no Mac runner free; a later run adds it. The app isn't notarized. After copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/Melodia.app\` once if macOS says it's damaged or can't be opened.
           **Windows:** unsigned; on a SmartScreen prompt choose More info › Run anyway.
           EOF
       - uses: softprops/action-gh-release@v2
