@@ -57,4 +57,10 @@ class VersionCodeResolverTest {
     fun `段数不为三返回null`() {
         assertNull(VersionCodeResolver.resolve("v1.2"))
     }
+
+    @Test
+    fun `port tags resolve to the upstream version`() {
+        assertEquals(VersionCodeResolver.resolve("v2.1.0"), VersionCodeResolver.resolve("port-v2.1.0+3-abcd1234"))
+        assertEquals(VersionCodeResolver.resolve("v2.1.0-beta.3"), VersionCodeResolver.resolve("port-v2.1.0-beta.3+0-54f21045"))
+    }
 }
