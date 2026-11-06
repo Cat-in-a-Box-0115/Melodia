@@ -38,7 +38,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.lin0721.linmusic"
+        applicationId = (project.findProperty("releaseApplicationId") as String?) ?: "com.lin0721.linmusic"
         minSdk = 26
         targetSdk = 36
         // CI 打 tag 发布时通过 -PreleaseVersionCode/-PreleaseVersionName 覆盖，本地构建保持默认值
