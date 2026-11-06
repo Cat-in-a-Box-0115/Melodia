@@ -21,6 +21,7 @@ object SettingsSearchIndex {
             entry(PLAYBACK, 0, "与其他应用同时播放", "音频焦点 打断 混音"),
             entry(PLAYBACK, 0, "硬件音频解码", "offload 省电 后台"),
             entry(PLAYBACK, 0, "USB 独占输出", "usb dac 解码器 独占 外接声卡"),
+            entry(PLAYBACK, 0, "上一首先回到歌曲开头", "上一曲 切歌 重播 按两次"),
             entry(PLAYBACK, 0, "外部音视频停止后自动恢复", "打断 暂停 继续"),
             entry(PLAYBACK, 0, "音量平衡", "响度 均衡 replaygain"),
             entry(PLAYBACK, 0, "切歌淡入淡出", "crossfade 交叠 过渡时长 智能过渡 静音"),

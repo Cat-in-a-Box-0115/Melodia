@@ -63,6 +63,7 @@ class SettingsPreferences(
         private val KEY_AUDIO_OFFLOAD = booleanPreferencesKey("audio_offload")
         // 外部音视频停止后自动恢复，默认 true
         private val KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION = booleanPreferencesKey("resume_after_external_interruption")
+        private val KEY_PREVIOUS_RESTARTS_TRACK = booleanPreferencesKey("previous_restarts_track")
         // 切歌交叉淡化，默认 false
         private val KEY_CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
         // 自动切歌交叉淡化时长 (ms)，默认 3000
@@ -337,6 +338,17 @@ class SettingsPreferences(
     }
 
     // 外部音视频停止后自动恢复 Flow
+    // 播放超过 3 秒时，上一首是否先回到歌曲开头
+    val previousRestartsTrack: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PREVIOUS_RESTARTS_TRACK] ?: true
+    }
+
+    suspend fun savePreviousRestartsTrack(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PREVIOUS_RESTARTS_TRACK] = enabled
+        }
+    }
+
     val resumeAfterExternalInterruption: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] ?: true
     }

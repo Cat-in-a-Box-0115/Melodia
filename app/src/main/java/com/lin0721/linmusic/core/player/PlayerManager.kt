@@ -77,6 +77,7 @@ class PlayerManager(
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var previousRestartsTrack = true
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -248,6 +249,9 @@ class PlayerManager(
 
         scope.launch {
             settingsPreferences.crossfadeEnabled.collect { crossfadeEnabled = it }
+        }
+        scope.launch {
+            settingsPreferences.previousRestartsTrack.collect { previousRestartsTrack = it }
         }
         scope.launch {
             settingsPreferences.crossfadeDurationMs.collect { crossfadeDurationMs = it }
@@ -438,7 +442,7 @@ class PlayerManager(
     override fun playPrevious() {
         if (playbackQueue.isEmpty) return
         val position = controllerHolder.currentPosition
-        if (position > 3000) {
+        if (previousRestartsTrack && position > 3000) {
             seekTo(0)
             return
         }

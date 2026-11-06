@@ -106,6 +106,7 @@ class SettingsViewModel(
 
     val exclusiveOutput = settingsPreferences.exclusiveOutput.asState(false)
 
+    val previousRestartsTrack = settingsPreferences.previousRestartsTrack.asState(true)
     val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
 
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
@@ -369,6 +370,7 @@ class SettingsViewModel(
 
     fun updateExclusiveOutput(enabled: Boolean) = launchSave { settingsPreferences.saveExclusiveOutput(enabled) }
 
+    fun updatePreviousRestartsTrack(enabled: Boolean) = launchSave { settingsPreferences.savePreviousRestartsTrack(enabled) }
     fun updateResumeAfterExternalInterruption(enabled: Boolean) = launchSave { settingsPreferences.saveResumeAfterExternalInterruption(enabled) }
 
     fun updateCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveCrossfadeEnabled(enabled) }
