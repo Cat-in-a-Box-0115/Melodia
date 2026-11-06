@@ -75,6 +75,7 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
     val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
     val audioOffload by viewModel.audioOffload.collectAsStateWithLifecycle()
     val exclusiveOutput by viewModel.exclusiveOutput.collectAsStateWithLifecycle()
+    val previousRestartsTrack by viewModel.previousRestartsTrack.collectAsStateWithLifecycle()
     val resumeAfterExternalInterruption by viewModel.resumeAfterExternalInterruption.collectAsStateWithLifecycle()
     val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
@@ -111,6 +112,13 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "接 USB 解码器时绕过系统混音直接输出；期间系统和其他应用的声音改从手机扬声器播放，与切歌淡入淡出、硬件音频解码不能同时开启",
                     checked = exclusiveOutput,
                     onCheckedChange = { viewModel.updateExclusiveOutput(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "上一首先回到歌曲开头",
+                    subtitle = "播放超过 3 秒时，第一次按上一首从头播放，再按一次才切歌；关闭后直接切到上一首",
+                    checked = previousRestartsTrack,
+                    onCheckedChange = { viewModel.updatePreviousRestartsTrack(it) }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
