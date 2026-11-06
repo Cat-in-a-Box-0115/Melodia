@@ -27,7 +27,17 @@ internal class UsbAudioOutputProvider(
     }
 
     override fun getFormatSupport(formatConfig: AudioOutputProvider.FormatConfig): AudioOutputProvider.FormatSupport {
-        if (!usbCapable(formatConfig.format, report = false)) return fallback.getFormatSupport(formatConfig)
+        if (!usbCapable(formatConfig.format, report = false)) {
+            val support = fallback.getFormatSupport(formatConfig)
+            // 走系统输出时不声明可直接播放浮点，否则 MediaCodecAudioRenderer 会向解码器请求浮点输出；
+            // 部分厂商解码器（如三星 c2.sec.flac.decoder）标称浮点但实际帧数减半，导致倍速与杂音
+            val format = formatConfig.format
+            val isFloat = format.sampleMimeType == MimeTypes.AUDIO_RAW && format.pcmEncoding == C.ENCODING_PCM_FLOAT
+            if (!isFloat || support.supportLevel != AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY) return support
+            return AudioOutputProvider.FormatSupport.Builder()
+                .setFormatSupportLevel(AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING)
+                .build()
+        }
         return AudioOutputProvider.FormatSupport.Builder()
             .setFormatSupportLevel(AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY)
             .build()
