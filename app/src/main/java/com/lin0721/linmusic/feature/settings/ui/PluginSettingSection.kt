@@ -1,7 +1,8 @@
 package com.lin0721.linmusic.feature.settings.ui
 
 import org.koin.compose.koinInject
-import com.lin0721.linmusic.core.plugin.isCard
+import com.lin0721.linmusic.core.plugin.PluginPagePlacement
+import com.lin0721.linmusic.core.plugin.settingsPage
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.playerLayoutSummary
@@ -25,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -62,6 +64,7 @@ import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
 import com.lin0721.linmusic.core.plugin.pluginRiskWarning
 import com.lin0721.linmusic.core.plugin.pluginStatusLine
+import com.lin0721.linmusic.core.plugin.pluginUpdates
 import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -93,6 +96,10 @@ fun PluginSettingSection(repository: PluginRepository) {
     val context = LocalContext.current
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
     var exportTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var rollbackTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var catalogOpen by remember { mutableStateOf(false) }
+    val catalog by controller.catalog.collectAsState()
+    val updates = pluginUpdates(installed, catalog.entries)
 
     // 插件包扩展名不在系统 MIME 表里，只能放开类型由解包校验
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -104,7 +111,10 @@ fun PluginSettingSection(repository: PluginRepository) {
         if (uri != null && target != null) controller.export(target) { context.contentResolver.openOutputStream(uri) }
     }
 
-    LaunchedEffect(repository) { controller.refresh() }
+    LaunchedEffect(repository) {
+        controller.refresh()
+        controller.loadCatalog()
+    }
     LaunchedEffect(controller.message) {
         controller.message?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -133,11 +143,14 @@ fun PluginSettingSection(repository: PluginRepository) {
                         exportLauncher.launch(pluginExportFileName(plugin))
                     },
                     onDelete = { deleteTarget = plugin },
-                    onSettings = { settingsTarget = plugin.manifest }
+                    onSettings = { settingsTarget = plugin.manifest },
+                    hasSettings = plugin.manifest?.contributes?.settings?.isNotEmpty() == true || pages.settingsPage(plugin.id) != null,
+                    updateVersion = updates[plugin.id]?.version,
+                    onRollback = { rollbackTarget = plugin }
                 )
             }
         }
-        val entryPages = pages.filter { !it.isCard }
+        val entryPages = pages.filter { it.page.placement == PluginPagePlacement.SIDEBAR }
         if (entryPages.isNotEmpty()) {
             Text("插件页面", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
             entryPages.forEach { active ->
@@ -163,13 +176,21 @@ fun PluginSettingSection(repository: PluginRepository) {
             }
         }
         MelodiaOutlinedButton(
+            onClick = { catalogOpen = true },
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+        ) {
+            Text("插件目录", color = MelodiaColors.TextPrimary)
+        }
+        MelodiaOutlinedButton(
             onClick = { importLauncher.launch(arrayOf("*/*")) },
             enabled = controller.step != PluginImportStep.Working,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
         ) {
             Text(if (controller.step == PluginImportStep.Working) "正在读取…" else "导入插件", color = MelodiaColors.TextPrimary)
         }
     }
+
+    if (catalogOpen) PluginCatalogSheet(controller, onDismiss = { catalogOpen = false })
 
     when (val step = controller.step) {
         is PluginImportStep.Preview -> PluginPreviewSheet(
@@ -191,7 +212,9 @@ fun PluginSettingSection(repository: PluginRepository) {
 
     openPage?.let { active -> PluginPageDialog(active, pageHost, onDismiss = { openPage = null }) }
 
-    settingsTarget?.let { manifest -> PluginSettingsDialog(manifest, pageHost, onDismiss = { settingsTarget = null }) }
+    settingsTarget?.let { manifest ->
+        PluginSettingsDialog(manifest, pages.settingsPage(manifest.id), pageHost, onDismiss = { settingsTarget = null })
+    }
 
     layoutPickerArea?.let { area ->
         val options = playerLayoutOptions(area, layouts)
@@ -201,6 +224,29 @@ fun PluginSettingSection(repository: PluginRepository) {
             selected = currentPlayerLayoutOption(area, layouts).choice ?: LAYOUT_CHOICE_AUTO,
             onSelect = { key -> controller.chooseLayout(area, key.takeIf { it != LAYOUT_CHOICE_AUTO }) },
             onDismiss = { layoutPickerArea = null }
+        )
+    }
+
+    rollbackTarget?.let { plugin ->
+        AlertDialog(
+            onDismissRequest = { rollbackTarget = null },
+            title = { Text("回退插件", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "把「${plugin.name}」回退到 v${plugin.previousVersion}？当前版本不会保留，插件数据不变。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                MelodiaTextButton(onClick = {
+                    rollbackTarget = null
+                    controller.rollback(plugin)
+                }) { Text("回退", color = MelodiaColors.AccentText) }
+            },
+            dismissButton = {
+                MelodiaTextButton(onClick = { rollbackTarget = null }) { Text("取消", color = MelodiaColors.TextPrimary) }
+            },
+            containerColor = MaterialTheme.colorScheme.background
         )
     }
 
@@ -232,7 +278,10 @@ private fun PluginRow(
     onToggle: (Boolean) -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    hasSettings: Boolean,
+    updateVersion: String?,
+    onRollback: () -> Unit
 ) {
     val manifest = plugin.manifest
     val statusLine = pluginStatusLine(plugin, status)
@@ -263,8 +312,16 @@ private fun PluginRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+                updateVersion?.let {
+                    Text("可更新到 v$it，到插件目录里更新", color = MelodiaColors.AccentText, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                }
             }
-            if (manifest?.contributes?.settings?.isNotEmpty() == true) {
+            if (plugin.previousVersion != null) {
+                IconButton(onClick = onRollback, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Rounded.Restore, contentDescription = "回退到上一版本", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                }
+            }
+            if (hasSettings) {
                 IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Rounded.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }

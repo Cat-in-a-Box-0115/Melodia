@@ -66,6 +66,7 @@ class SettingsViewModel(
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
+    val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
     val unmServerUrl = sourcePreferences.unmServerUrl.asState("")
     val unmRemoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.asState(false)
     val unmAutoMatch = sourcePreferences.unmAutoMatch.asState(true)
@@ -103,6 +104,8 @@ class SettingsViewModel(
 
     val audioOffload = settingsPreferences.audioOffload.asState(false)
 
+    val exclusiveOutput = settingsPreferences.exclusiveOutput.asState(false)
+
     val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
 
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
@@ -120,6 +123,8 @@ class SettingsViewModel(
     val useProxy = settingsPreferences.useProxy.asState(false)
 
     val showDesktopLrc = settingsPreferences.showDesktopLrc.asState(false)
+
+    val isLoggedIn = userPreferences.userProfile.map { it != null }.asState(false)
 
     val showLockscreen = settingsPreferences.showLockscreen.asState(true)
 
@@ -146,6 +151,8 @@ class SettingsViewModel(
     val themeSettings = settingsPreferences.themeSettings.asState(ThemeSettings())
 
     val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
+
+    val playlistTrackIndexEnabled = settingsPreferences.playlistTrackIndexEnabled.asState(false)
 
     val floatingLyricStyle = settingsPreferences.floatingLyricStyle.asState(FloatingLyricStyle(fontSizeSp = 14, backgroundAlpha = 70))
 
@@ -265,6 +272,7 @@ class SettingsViewModel(
     fun updateUnmAutoMatch(enabled: Boolean) = launchSave { sourcePreferences.saveUnmAutoMatch(enabled) }
 
     fun updateCommunityPriority(enabled: Boolean) = launchSave { sourcePreferences.saveCommunityPriority(enabled) }
+    fun updatePluginBeforeOfficial(enabled: Boolean) = launchSave { sourcePreferences.savePluginBeforeOfficial(enabled) }
 
     fun updateLxPluginEnabled(enabled: Boolean) {
         viewModelScope.launch { lxPluginManager.setEnabled(enabled) }
@@ -359,6 +367,8 @@ class SettingsViewModel(
 
     fun updateAudioOffload(enabled: Boolean) = launchSave { settingsPreferences.saveAudioOffload(enabled) }
 
+    fun updateExclusiveOutput(enabled: Boolean) = launchSave { settingsPreferences.saveExclusiveOutput(enabled) }
+
     fun updateResumeAfterExternalInterruption(enabled: Boolean) = launchSave { settingsPreferences.saveResumeAfterExternalInterruption(enabled) }
 
     fun updateCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveCrossfadeEnabled(enabled) }
@@ -410,6 +420,8 @@ class SettingsViewModel(
     fun updateThemeCustomColor(isDark: Boolean, hex: String) = launchSave { settingsPreferences.saveThemeCustomColor(isDark, hex) }
 
     fun updateUiAnimationsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveUiAnimationsEnabled(enabled) }
+
+    fun updatePlaylistTrackIndexEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTrackIndexEnabled(enabled) }
 
     fun updateFloatingLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) =
         launchSave { settingsPreferences.saveFloatingLyricStyle(transform(settingsPreferences.floatingLyricStyle.first())) }

@@ -23,8 +23,8 @@ sealed interface PluginImportStep {
     data object Idle : PluginImportStep
     data object Working : PluginImportStep
 
-    // existing 为已安装的同 id 插件，此时确认即升级
-    data class Preview(val staged: StagedPlugin, val existing: InstalledPlugin?) : PluginImportStep {
+    // existing 为已安装的同 id 插件，此时确认即升级；unreviewed 表示来自自定义目录
+    data class Preview(val staged: StagedPlugin, val existing: InstalledPlugin?, val unreviewed: Boolean = false) : PluginImportStep {
         // 升级时比已确认的多出来的权限，需要重点提示
         val newPermissions: Set<PluginPermission>
             get() = existing?.let { old -> staged.manifest.permissions.filterTo(LinkedHashSet()) { it.key !in old.state.granted } }
@@ -56,8 +56,21 @@ class PluginSettingsController(
         scope.launch { repository.refresh() }
     }
 
-    // open 在 IO 线程调用，返回 null 视为用户取消
-    fun import(open: suspend () -> InputStream?) {
+    val backdrops: StateFlow<BackdropState> = repository.backdrops
+
+    fun chooseBackdrop(choice: String?) {
+        scope.launch { repository.chooseBackdrop(choice) }
+    }
+
+    val nativeSupported: Boolean = repository.nativeSupported
+    val nativeAllowed: StateFlow<Boolean> = repository.nativeAllowed
+
+    fun setNativeAllowed(allowed: Boolean) {
+        scope.launch { repository.setNativeAllowed(allowed) }
+    }
+
+    // open 在 IO 线程调用，返回 null 视为用户取消；sourceName 在 open 成功后读取
+    fun import(sourceName: () -> String? = { null }, open: suspend () -> InputStream?) {
         if (step == PluginImportStep.Working) return
         scope.launch {
             step = PluginImportStep.Working
@@ -76,13 +89,82 @@ class PluginSettingsController(
                 step = PluginImportStep.Idle
                 return@launch
             }
-            step = when (val result = repository.stage(input)) {
+            step = when (val result = repository.stage(input, sourceName())) {
                 is PluginStageResult.Failure -> PluginImportStep.Failed(result.reason)
                 is PluginStageResult.Success -> PluginImportStep.Preview(
                     result.staged,
                     repository.installedVersion(result.staged.manifest.id)
                 )
             }
+        }
+    }
+
+    val catalog: StateFlow<PluginCatalogState> = repository.catalog.state
+
+    // 下载进度 0–1，没有在下载时为 null
+    var downloadProgress: Float? by mutableStateOf(null)
+        private set
+
+    // 正在从目录下载的插件 id
+    var downloadingId: String? by mutableStateOf(null)
+        private set
+
+    fun loadCatalog() {
+        scope.launch { repository.catalog.load() }
+    }
+
+    fun setCatalogUrl(url: String?) {
+        scope.launch { repository.catalog.setUrl(url)?.let { message = it } }
+    }
+
+    fun installFromCatalog(entry: PluginCatalogEntry) {
+        if (step == PluginImportStep.Working) return
+        if (entry.isNative && !repository.nativeAllowed.value) {
+            step = PluginImportStep.Failed("这是原生插件，请先开启「允许原生插件」")
+            return
+        }
+        scope.launch {
+            step = PluginImportStep.Working
+            val unreviewed = repository.catalog.isCustom()
+            downloadProgress = 0f
+            downloadingId = entry.id
+            val file = try {
+                repository.catalog.download(entry) { done -> downloadProgress = done.toFloat() / entry.download.size }
+            } catch (e: PluginCatalogException) {
+                step = PluginImportStep.Failed(e.message.orEmpty())
+                return@launch
+            } finally {
+                downloadProgress = null
+                downloadingId = null
+            }
+            val result = try {
+                repository.stage(withContext(Dispatchers.IO) { file.inputStream() }, entry.download.url.substringAfterLast('/'))
+            } catch (e: IOException) {
+                AppLogger.w(TAG, "打开下载的插件包失败", e)
+                PluginStageResult.Failure("无法读取下载的插件包")
+            } finally {
+                withContext(Dispatchers.IO) { file.delete() }
+            }
+            step = when (result) {
+                is PluginStageResult.Failure -> PluginImportStep.Failed(result.reason)
+                is PluginStageResult.Success -> {
+                    val mismatch = pluginCatalogMismatch(entry, result.staged.manifest)
+                    if (mismatch != null) {
+                        repository.discard(result.staged)
+                        PluginImportStep.Failed(mismatch)
+                    } else {
+                        PluginImportStep.Preview(result.staged, repository.installedVersion(entry.id), unreviewed)
+                    }
+                }
+            }
+        }
+    }
+
+    fun rollback(plugin: InstalledPlugin) {
+        scope.launch {
+            val restored = repository.rollback(plugin.id)
+            val restart = if (restored?.manifest?.kind == PluginKind.NATIVE) "，重启后生效" else ""
+            message = if (restored != null) "已回退到 v${restored.manifest?.version ?: plugin.previousVersion}$restart" else "回退失败"
         }
     }
 
@@ -95,7 +177,8 @@ class PluginSettingsController(
                 step = PluginImportStep.Failed("安装插件失败")
             } else {
                 step = PluginImportStep.Idle
-                message = if (preview.existing != null) "已升级「${plugin.name}」" else "已安装并启用「${plugin.name}」"
+                val restart = if (plugin.manifest?.kind == PluginKind.NATIVE) "，重启后生效" else ""
+                message = (if (preview.existing != null) "已升级「${plugin.name}」" else "已安装并启用「${plugin.name}」") + restart
             }
         }
     }
@@ -152,8 +235,11 @@ fun rememberPluginSettingsController(repository: PluginRepository): PluginSettin
 fun pluginExportFileName(plugin: InstalledPlugin): String = "${plugin.id}.$PLUGIN_FILE_EXTENSION"
 
 // 导入预览里的高风险提示
-fun pluginRiskWarning(manifest: PluginManifest): String? =
-    if (PluginPermission.NETEASE_WRITE in manifest.permissions) "这个插件可以修改你的网易云账号，只安装你信任的插件" else null
+fun pluginRiskWarning(manifest: PluginManifest): String? = when {
+    manifest.kind == PluginKind.NATIVE -> "这是原生插件，等同于运行任意程序：上面的权限只是声明，无法真正限制它。只安装你信任的插件"
+    PluginPermission.NETEASE_WRITE in manifest.permissions -> "这个插件可以修改你的网易云账号，只安装你信任的插件"
+    else -> null
+}
 
 // 列表与预览里的能力摘要
 fun pluginFeatureSummary(manifest: PluginManifest): String {
@@ -167,6 +253,7 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
         if (contributes.commands.isNotEmpty()) add("命令 ${contributes.commands.size} 个")
         if (contributes.settings.isNotEmpty()) add("设置 ${contributes.settings.size} 项")
         if (contributes.contentSources.isNotEmpty()) add("内容源 ${contributes.contentSources.size} 个")
+        if (contributes.backdrops.isNotEmpty()) add("动态背景 ${contributes.backdrops.size} 个")
     }.joinToString("、")
 }
 
@@ -180,7 +267,8 @@ fun pluginStatusLine(plugin: InstalledPlugin, status: PluginRuntimeStatus?): Plu
         manifest == null || plugin.loadError != null -> PluginStatusLine("无法加载：${plugin.loadError ?: "清单无效"}", true)
         plugin.missingPermissions.isNotEmpty() -> PluginStatusLine("有未确认的权限，重新导入插件后才能启用", true)
         !plugin.state.enabled -> PluginStatusLine(plugin.state.disabledReason ?: "已停用", plugin.state.disabledReason != null)
-        !manifest.contributes.needsScript -> PluginStatusLine("已启用", false)
+        manifest.kind == PluginKind.NATIVE && status == null -> PluginStatusLine("重启后生效", false)
+        manifest.kind == PluginKind.SANDBOX && !manifest.contributes.needsScript -> PluginStatusLine("已启用", false)
         status?.running == true && status.lastError != null -> PluginStatusLine("运行中，最近一次出错：${status.lastError}", true)
         status?.running == true -> PluginStatusLine("运行中", false)
         status?.lastError != null -> PluginStatusLine(status.lastError, true)
@@ -190,6 +278,15 @@ fun pluginStatusLine(plugin: InstalledPlugin, status: PluginRuntimeStatus?): Plu
 
 // 布局来源选项；choice 为 null 表示自动选最近启用的插件
 data class PlayerLayoutOption(val choice: String?, val label: String)
+
+fun backdropOptions(state: BackdropState): List<PlayerLayoutOption> =
+    listOf(PlayerLayoutOption(null, "自动（最近启用的插件）"), PlayerLayoutOption(LAYOUT_CHOICE_DEFAULT, "不使用")) +
+        state.candidates.map { PlayerLayoutOption(it.key, "${it.pluginName} · ${it.entry.name}") }
+
+fun currentBackdropOption(state: BackdropState): PlayerLayoutOption {
+    val options = backdropOptions(state)
+    return options.firstOrNull { it.choice != null && it.choice == state.choice } ?: options.first()
+}
 
 // 本端有插件布局候选的区域，platformPrefix 为 android. 或 desktop.
 fun layoutAreasWithCandidates(state: PlayerLayoutState, platformPrefix: String): List<PlayerLayoutArea> =

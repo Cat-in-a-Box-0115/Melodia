@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,6 +52,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -76,10 +78,27 @@ import androidx.compose.ui.unit.TextUnit
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.plugin.CONTROL_BUTTONS
 import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_PAUSE
+import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_MODE
+import com.lin0721.linmusic.core.plugin.ControlVariant
+import com.lin0721.linmusic.core.plugin.FrameBackground
+import com.lin0721.linmusic.core.plugin.HostAction
+import com.lin0721.linmusic.core.plugin.LayoutAction
+import com.lin0721.linmusic.core.plugin.LayoutEnvironment
+import com.lin0721.linmusic.core.plugin.LayoutTimeText
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.rememberLayoutScriptRunner
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
+import com.lin0721.linmusic.core.plugin.PlayerBindingState
+import com.lin0721.linmusic.core.plugin.layoutFill
+import com.lin0721.linmusic.core.model.getQualityBadgeLabel
+import com.lin0721.linmusic.core.player.playSourceText
+import com.lin0721.linmusic.desktop.ui.nowplaying.rememberLayoutCoverColors
+import androidx.compose.runtime.CompositionLocalProvider
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.format.formatDuration
@@ -209,14 +228,28 @@ fun PlayerBar(
 
 private val DesktopBarActions = PlayerLayoutArea.DESKTOP_PLAYER_BAR.actionButtons
 private const val MIN_PLUGIN_BAR_HEIGHT = 64f
+private const val SEEK_STEP_MS = 10_000L
 private const val MAX_PLUGIN_BAR_HEIGHT = 160f
 
-// 插件布局：根节点高度即播放栏高度，限制在合理范围内；没有歌曲时封面、标题等组件留空
+// 插件布局：按窗口宽度选变体，根节点高度即播放栏高度，限制在合理范围内；没有歌曲时封面、标题等组件留空
 @Composable
-private fun PluginPlayerBar(root: PlayerLayoutNode, parts: PlayerBarParts, modifier: Modifier) {
-    val height = (root.height ?: DesktopDimens.PlayerBarHeight.value).coerceIn(MIN_PLUGIN_BAR_HEIGHT, MAX_PLUGIN_BAR_HEIGHT).dp
-    PlayerLayoutView(root.copy(height = null), modifier.fillMaxWidth().height(height)) { node, nodeModifier ->
-        parts.Component(node, nodeModifier)
+private fun PluginPlayerBar(spec: PlayerLayoutSpec, parts: PlayerBarParts, modifier: Modifier) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val root = spec.select(maxWidth.value, landscape = true)
+        val height = (root.height ?: DesktopDimens.PlayerBarHeight.value).coerceIn(MIN_PLUGIN_BAR_HEIGHT, MAX_PLUGIN_BAR_HEIGHT).dp
+        // 播放栏本身没有底色，只有插件指定色板项时才铺底
+        val coverColors = rememberLayoutCoverColors(parts.nowPlaying?.artworkUri)
+        val binding = parts.bindingState()
+        CompositionLocalProvider(
+            LocalLayoutCoverColors provides coverColors,
+            LocalLayoutEnvironment provides parts.environment(spec.pluginId, binding)
+        ) {
+            val fill = (spec.frame.background as? FrameBackground.Fill)?.fill
+            val barModifier = Modifier.fillMaxWidth().height(height).then(fill?.let { Modifier.layoutFill(it) } ?: Modifier)
+            PlayerLayoutView(root.copy(height = null), barModifier, binding::prepare) { node, nodeModifier ->
+                parts.Component(node, nodeModifier)
+            }
+        }
     }
 }
 
@@ -265,11 +298,76 @@ internal class PlayerBarParts(
                 Artists((12 * scale).sp)
             }
             LayoutNodeType.LIKE_BUTTON -> LikeButton(modifier)
-            LayoutNodeType.CONTROLS -> Controls(node.buttons, modifier, scale)
+            LayoutNodeType.CONTROLS -> Controls(node.buttons, modifier, scale, node.variant)
             LayoutNodeType.PROGRESS -> Box(modifier) { Progress(node.showTime) }
             LayoutNodeType.ACTIONS -> Actions(node.buttons, modifier)
+            LayoutNodeType.TIME -> LayoutTimeText(node, { position }, duration, modifier)
             else -> Unit
         }
+    }
+
+    // 手势里的宿主动作；本区域不支持的动作在解析时已去掉
+    private fun handle(action: HostAction) {
+        when (action) {
+            HostAction.TOGGLE_PLAY -> controller.togglePlayPause()
+            HostAction.NEXT -> controller.playNext()
+            HostAction.PREVIOUS -> controller.skipToPrevious()
+            HostAction.SEEK_FORWARD -> controller.seekTo((position + SEEK_STEP_MS).coerceAtMost(duration.coerceAtLeast(0L)))
+            HostAction.SEEK_BACK -> controller.seekTo((position - SEEK_STEP_MS).coerceAtLeast(0L))
+            HostAction.TOGGLE_LIKE -> if (isPodcast) playerViewModel.toggleSubscribe() else playerViewModel.toggleLike()
+            HostAction.CYCLE_PLAY_MODE -> if (playMode == PlayMode.LIST_LOOP) controller.toggleRepeat() else controller.toggleShuffle()
+            HostAction.TOGGLE_NOW_PLAYING -> onToggleNowPlaying()
+            HostAction.TOGGLE_LYRICS_VIEW -> onToggleLyricsView()
+            else -> Unit
+        }
+    }
+
+    // 回调读最新状态但自身不变，环境的其他值没变时不让整棵布局树跟着重组
+    @Composable
+    fun environment(pluginId: String, binding: PlayerBindingState): LayoutEnvironment {
+        val runScript = rememberLayoutScriptRunner(pluginId, binding)
+        val latest by rememberUpdatedState(this)
+        val onAction = remember(runScript) {
+            { action: LayoutAction ->
+                when (action) {
+                    is LayoutAction.Host -> latest.handle(action.action)
+                    is LayoutAction.Script -> runScript(action.name)
+                }
+            }
+        }
+        return LayoutEnvironment(
+            playing = isPlaying,
+            songKey = nowPlaying?.mediaId,
+            motionEnabled = LocalUiMotion.current.enabled,
+            onAction = onAction
+        )
+    }
+
+    // $player 绑定的取值
+    @Composable
+    fun bindingState(): PlayerBindingState {
+        val songDetail by playerViewModel.songDetailState.collectAsState()
+        val podcast by playerViewModel.podcastState.collectAsState()
+        val playContext by controller.playContext.collectAsState()
+        val showQuality by playerViewModel.showPlaybackQuality.collectAsState()
+        val level by controller.playbackLevel.collectAsState()
+        val track = nowPlaying
+        val lyrics = songDetail.lyrics
+        val quality = level
+            ?.takeIf { showQuality && !podcast.isPodcast && it.songId.toString() == track?.mediaId }
+            ?.let { getQualityBadgeLabel(it.level) }
+        return PlayerBindingState(
+            title = track?.title.orEmpty(),
+            artist = track?.artist.orEmpty(),
+            album = songDetail.songDetail?.al?.name.orEmpty(),
+            source = playSourceText(playContext, podcast.radioName).second.orEmpty(),
+            quality = quality.orEmpty(),
+            playing = isPlaying,
+            liked = if (podcast.isPodcast) podcast.subscribed else songDetail.isLiked,
+            isPodcast = podcast.isPodcast,
+            hasLyrics = lyrics.isNotEmpty() && !(lyrics.size == 1 && lyrics[0].text == "纯音乐"),
+            playMode = playMode
+        )
     }
 
     @Composable
@@ -357,10 +455,10 @@ internal class PlayerBarParts(
 
     // 播客没有随机与循环，对应按钮不显示
     @Composable
-    fun Controls(buttons: List<String>, modifier: Modifier = Modifier, scale: Float = 1f) {
+    fun Controls(buttons: List<String>, modifier: Modifier = Modifier, scale: Float = 1f, variant: ControlVariant = ControlVariant.DEFAULT) {
         val transportSize = TransportButtonSize * scale
         Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp * scale)) {
-            val outlined = outlinedControls
+            val outlined = variant == ControlVariant.OUTLINED || (variant == ControlVariant.DEFAULT && outlinedControls)
             val transportOutline = if (outlined) Modifier.border(1.dp, DesktopColors.Outline, CircleShape) else Modifier
             buttons.forEach { button ->
                 when (button) {
@@ -377,7 +475,31 @@ internal class PlayerBarParts(
                         Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack, size = transportSize,
                         onClick = controller::skipToPrevious, modifier = transportOutline
                     )
-                    CONTROL_PLAY_PAUSE -> PlayPauseButton(transportSize, outlined)
+                    CONTROL_PLAY_PAUSE -> if (variant == ControlVariant.PLAIN) {
+                        Box(Modifier.size(transportSize), contentAlignment = Alignment.Center) {
+                            IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
+                                PlayPauseIcon(isPlaying, DesktopColors.TextPrimary, contentDescription = if (isPlaying) "暂停" else "播放")
+                            }
+                        }
+                    } else {
+                        PlayPauseButton(transportSize, outlined)
+                    }
+                    // 列表循环 → 单曲循环 → 随机 → 列表循环
+                    CONTROL_PLAY_MODE -> if (!isPodcast) BarIconButton(
+                        when (playMode) {
+                            PlayMode.LIST_LOOP -> Icons.Rounded.Repeat
+                            PlayMode.SINGLE_LOOP -> Icons.Rounded.RepeatOne
+                            PlayMode.SHUFFLE -> Icons.Rounded.Shuffle
+                        },
+                        when (playMode) {
+                            PlayMode.LIST_LOOP -> "列表循环"
+                            PlayMode.SINGLE_LOOP -> "单曲循环"
+                            PlayMode.SHUFFLE -> "随机播放"
+                        },
+                        enabled = hasTrack,
+                        size = transportSize,
+                        onClick = if (playMode == PlayMode.LIST_LOOP) controller::toggleRepeat else controller::toggleShuffle
+                    )
                     "next" -> BarIconButton(
                         Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
                         onClick = controller::playNext, modifier = transportOutline

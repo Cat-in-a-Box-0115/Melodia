@@ -14,6 +14,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -74,10 +76,14 @@ object PluginBinding {
         return manifest.file(value)?.let(PluginImageSource::Asset)
     }
 
-    fun tracks(value: JsonElement?): List<PluginTrack> = (value as? JsonArray).orEmpty().mapNotNull { element ->
+    // 封面由图片加载器直接请求，沙盒插件同样只能用清单允许的域名，其他地址返回空字符串
+    fun cover(manifest: PluginManifest, value: String): String =
+        if (manifest.kind == PluginKind.NATIVE || image(manifest, value) is PluginImageSource.Remote) value else ""
+
+    fun tracks(manifest: PluginManifest, value: JsonElement?): List<PluginTrack> = (value as? JsonArray).orEmpty().mapNotNull { element ->
         val obj = element as? JsonObject ?: return@mapNotNull null
         val songId = (obj["songId"] as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 } ?: return@mapNotNull null
-        PluginTrack(songId, text(obj["title"]), text(obj["artist"]), text(obj["cover"]))
+        PluginTrack(songId, text(obj["title"]), text(obj["artist"]), cover(manifest, text(obj["cover"])))
     }
 }
 
@@ -87,7 +93,7 @@ interface PluginPageUi {
     @Composable fun Tracks(tracks: List<PluginTrack>, onPlay: (Int) -> Unit, modifier: Modifier)
     @Composable fun Button(text: String, busy: Boolean, onClick: () -> Unit, modifier: Modifier)
     @Composable fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier)
-    @Composable fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier)
+    @Composable fun Input(label: String, value: String, secret: Boolean, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier)
     @Composable fun Loading(modifier: Modifier)
     @Composable fun Select(label: String, options: List<PluginOption>, selected: String, onSelect: (String) -> Unit, modifier: Modifier)
     @Composable fun Slider(label: String, value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, onCommit: () -> Unit, modifier: Modifier)
@@ -98,20 +104,28 @@ interface PluginPageUi {
 
 // 页面运行所需的宿主操作
 class PluginPageHost(private val runtime: PluginRuntime, private val api: PluginHostApi) {
+    private fun nativeAction(pluginId: String, name: String): ActionExtension? =
+        runtime.registry.get(ExtensionPoints.ACTION).firstOrNull { it.pluginId == pluginId && it.localId == name }?.value
+
+    private fun hasAction(pluginId: String, name: String): Boolean = nativeAction(pluginId, name) != null ||
+        "${PluginPrelude.KIND_ACTION}:$name" in runtime.status.value[pluginId]?.registrations.orEmpty()
 
     fun state(pluginId: String, pageId: String): JsonObject =
         api.uiStates.value["$pluginId/$pageId"] ?: JsonObject(emptyMap())
 
     val states get() = api.uiStates
 
+    val statuses get() = runtime.status
+
     suspend fun action(pluginId: String, name: String, args: JsonElement = JsonNull): Boolean =
-        runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null
+        nativeAction(pluginId, name)?.run(args)
+            ?: (runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null)
+
+    fun canOpen(pluginId: String, pageId: String): Boolean = hasAction(pluginId, "open:$pageId")
 
     // 页面打开时给脚本一次刷新数据的机会
     suspend fun open(pluginId: String, pageId: String) {
-        val name = "open:$pageId"
-        val registered = runtime.status.value[pluginId]?.registrations.orEmpty()
-        if ("${PluginPrelude.KIND_ACTION}:$name" in registered) action(pluginId, name)
+        if (canOpen(pluginId, pageId)) action(pluginId, "open:$pageId")
     }
 
     fun setField(pluginId: String, pageId: String, field: String, value: JsonElement) =
@@ -120,13 +134,23 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
     suspend fun play(manifest: PluginManifest, tracks: List<PluginTrack>, index: Int) =
         api.playTracks(manifest, tracks, index)
 
-    suspend fun settings(manifest: PluginManifest): JsonObject = api.settings(manifest)
+    // 读取失败时提示并回到默认值，页面不能因为磁盘错误崩溃
+    suspend fun settings(manifest: PluginManifest): JsonObject = try {
+        api.settings(manifest)
+    } catch (e: PluginCallException) {
+        api.notice("${manifest.name}：${e.message}")
+        JsonObject(manifest.contributes.settings.associate { it.id to it.default })
+    }
 
     // 脚本注册了 settingsChanged 时通知一次
     suspend fun setSetting(manifest: PluginManifest, key: String, value: JsonElement) {
-        api.setSetting(manifest, key, value)
-        val registered = runtime.status.value[manifest.id]?.registrations.orEmpty()
-        if ("${PluginPrelude.KIND_ACTION}:$SETTINGS_CHANGED" in registered) {
+        try {
+            api.setSetting(manifest, key, value)
+        } catch (e: PluginCallException) {
+            api.notice("${manifest.name}：${e.message}")
+            return
+        }
+        if (hasAction(manifest.id, SETTINGS_CHANGED)) {
             action(manifest.id, SETTINGS_CHANGED, buildJsonObject {
                 put("key", key)
                 put("value", value)
@@ -154,7 +178,10 @@ fun PluginPageView(
     val pageId = page.page.id
     val states by host.states.collectAsState()
     val state = states["$pluginId/$pageId"] ?: JsonObject(emptyMap())
-    LaunchedEffect(pluginId, pageId) { host.open(pluginId, pageId) }
+    // 页面先于脚本发布，要等脚本注册了 open 动作再调用
+    val readiness = remember(pluginId, pageId) { host.statuses.map { host.canOpen(pluginId, pageId) }.distinctUntilChanged() }
+    val canOpen by readiness.collectAsState(initial = host.canOpen(pluginId, pageId))
+    LaunchedEffect(pluginId, pageId, canOpen) { if (canOpen) host.open(pluginId, pageId) }
     PageNode(root, modifier, PageScope(page, host, ui, state, null))
 }
 
@@ -209,7 +236,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
             }
         }
         LayoutNodeType.TRACK_LIST -> {
-            val tracks = PluginBinding.tracks(scope.value(node.bind)).take(MAX_LIST_ITEMS)
+            val tracks = PluginBinding.tracks(scope.page.manifest, scope.value(node.bind)).take(MAX_LIST_ITEMS)
             scope.ui.Tracks(tracks, { index -> coroutine.launch { scope.host.play(scope.page.manifest, tracks, index) } }, modifier)
         }
         LayoutNodeType.IMAGE -> {
@@ -219,14 +246,15 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
         LayoutNodeType.BUTTON -> {
             var busy by remember { mutableStateOf(false) }
             val action = node.action ?: return
-            // 列表项里的按钮把当前项作为参数传给脚本
-            val args = scope.item ?: JsonNull
+            // 列表项里的按钮传当前项，其他按钮传点击时的页面数据，脚本由此拿到输入框里未提交的内容
+            val item = scope.item
             scope.ui.Button(
                 scope.text(node.text),
                 busy,
                 {
                     if (!busy) {
                         busy = true
+                        val args = item ?: scope.host.state(pluginId, pageId)
                         coroutine.launch {
                             try {
                                 scope.host.action(pluginId, action, args)
@@ -259,6 +287,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
             scope.ui.Input(
                 scope.text(node.text),
                 value,
+                node.secret,
                 { scope.host.setField(pluginId, pageId, field, JsonPrimitive(it)) },
                 {
                     node.action?.let { name ->
@@ -286,7 +315,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
         }
         LayoutNodeType.SLIDER -> {
             val field = node.bind.removePrefix("\$state.")
-            val value = ((scope.value(node.bind) as? JsonPrimitive)?.floatOrNull ?: node.min).coerceIn(node.min, node.max)
+            val value = ((scope.value(node.bind) as? JsonPrimitive)?.floatOrNull?.takeIf { it.isFinite() } ?: node.min).coerceIn(node.min, node.max)
             scope.ui.Slider(
                 scope.text(node.text),
                 value,
@@ -308,6 +337,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
         }
         LayoutNodeType.BADGE -> scope.ui.Badge(scope.text(node.text), modifier)
         LayoutNodeType.TABS -> {
+            if (node.children.isEmpty()) return
             var selected by remember { mutableStateOf(0) }
             Column(modifier, verticalArrangement = Arrangement.spacedBy(node.spacing.dp)) {
                 scope.ui.Tabs(node.children.map { scope.text(it.text) }, selected, { selected = it }, Modifier)

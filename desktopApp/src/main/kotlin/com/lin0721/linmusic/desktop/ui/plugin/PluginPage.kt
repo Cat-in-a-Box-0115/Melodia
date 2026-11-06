@@ -32,6 +32,8 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,9 +78,19 @@ internal fun PluginPageScreen(
 ) {
     val pages by repository.pages.collectAsState()
     val active = pages.firstOrNull { it.manifest.id == pluginId && it.page.id == pageId }
+    val composePage = active?.takeIf { it.page.compose }?.let { repository.composePage(pluginId, pageId) }
+    if (active != null && composePage != null) {
+        // 插件页面自己管理滚动
+        Column(modifier.fillMaxSize().padding(24.dp)) {
+            Text(active.page.title, color = DesktopColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(active.manifest.name, color = DesktopColors.TextTertiary, fontSize = 12.sp, modifier = Modifier.padding(bottom = 16.dp))
+            PluginComposeSlot(composePage, Modifier.fillMaxSize())
+        }
+        return
+    }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
         when {
-            active == null -> Text("插件已停用或已删除", color = DesktopColors.TextGray, fontSize = 13.sp)
+            active == null || active.page.compose -> Text("插件已停用或已删除", color = DesktopColors.TextGray, fontSize = 13.sp)
             active.root == null -> Text("页面描述无效：${active.error.orEmpty()}", color = DesktopColors.Error, fontSize = 13.sp)
             else -> {
                 Text(active.page.title, color = DesktopColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -136,8 +148,15 @@ internal object DesktopPluginPageUi : PluginPageUi {
     }
 
     @Composable
-    override fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
-        DialogTextField(value, onChange, modifier, placeholder = label, onEnter = onCommit)
+    override fun Input(label: String, value: String, secret: Boolean, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
+        DialogTextField(
+            value,
+            onChange,
+            modifier,
+            placeholder = label,
+            onEnter = onCommit,
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None
+        )
     }
 
     @Composable

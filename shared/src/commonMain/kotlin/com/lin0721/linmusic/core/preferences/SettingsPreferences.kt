@@ -70,6 +70,8 @@ class SettingsPreferences(
         private val KEY_SMART_CROSSFADE_ENABLED = booleanPreferencesKey("smart_crossfade_enabled")
         // 音量平衡（整曲响度归一化），默认 false
         private val KEY_LOUDNESS_NORMALIZATION_ENABLED = booleanPreferencesKey("loudness_normalization_enabled")
+        // 独占输出，默认 false
+        private val KEY_EXCLUSIVE_OUTPUT = booleanPreferencesKey("exclusive_output")
         // 默认播放顺序，默认 "loop" (列表循环)
         // 仅 Wi-Fi 网络下联网播放，默认 false
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
@@ -134,6 +136,8 @@ class SettingsPreferences(
         private val KEY_ALLOW_PRERELEASE_CHANNEL = booleanPreferencesKey("allow_prerelease_channel")
         // 界面过渡动画开关，默认 true；不影响歌词与音频淡入淡出
         private val KEY_UI_ANIMATIONS_ENABLED = booleanPreferencesKey("ui_animations_enabled")
+        // 歌单与推荐歌曲显示序号，默认 false
+        private val KEY_PLAYLIST_TRACK_INDEX_ENABLED = booleanPreferencesKey("playlist_track_index_enabled")
         // 用户主动忽略的更新版本 tag，默认空串表示未忽略任何版本
         private val KEY_IGNORED_UPDATE_TAG = stringPreferencesKey("ignored_update_tag")
         // 全屏歌词字体大小，默认 22sp
@@ -320,11 +324,14 @@ class SettingsPreferences(
         prefs[KEY_AUDIO_OFFLOAD] ?: false
     }
 
-    // 与切歌交叉淡化互斥
+    // 与切歌交叉淡化、独占输出互斥
     suspend fun saveAudioOffload(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_AUDIO_OFFLOAD] = enabled
-            if (enabled) prefs[KEY_CROSSFADE_ENABLED] = false
+            if (enabled) {
+                prefs[KEY_CROSSFADE_ENABLED] = false
+                prefs[KEY_EXCLUSIVE_OUTPUT] = false
+            }
         }
     }
 
@@ -344,11 +351,14 @@ class SettingsPreferences(
         prefs[KEY_CROSSFADE_ENABLED] ?: false
     }
 
-    // 与硬件音频解码互斥：淡化时两台播放器同时出声，会争用唯一的卸载通道
+    // 与硬件音频解码、独占输出互斥：淡化时两台播放器同时出声，会争用唯一的卸载通道或独占设备
     suspend fun saveCrossfadeEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_CROSSFADE_ENABLED] = enabled
-            if (enabled) prefs[KEY_AUDIO_OFFLOAD] = false
+            if (enabled) {
+                prefs[KEY_AUDIO_OFFLOAD] = false
+                prefs[KEY_EXCLUSIVE_OUTPUT] = false
+            }
         }
     }
 
@@ -382,6 +392,22 @@ class SettingsPreferences(
     suspend fun saveLoudnessNormalizationEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_LOUDNESS_NORMALIZATION_ENABLED] = enabled
+        }
+    }
+
+    // 独占输出开关 Flow
+    val exclusiveOutput: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_EXCLUSIVE_OUTPUT] ?: false
+    }
+
+    // 与切歌交叉淡化、硬件音频解码互斥
+    suspend fun saveExclusiveOutput(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_EXCLUSIVE_OUTPUT] = enabled
+            if (enabled) {
+                prefs[KEY_CROSSFADE_ENABLED] = false
+                prefs[KEY_AUDIO_OFFLOAD] = false
+            }
         }
     }
 
@@ -696,6 +722,17 @@ class SettingsPreferences(
     suspend fun saveUiAnimationsEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_UI_ANIMATIONS_ENABLED] = enabled
+        }
+    }
+
+    // 歌单序号开关 Flow
+    val playlistTrackIndexEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PLAYLIST_TRACK_INDEX_ENABLED] ?: false
+    }
+
+    suspend fun savePlaylistTrackIndexEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PLAYLIST_TRACK_INDEX_ENABLED] = enabled
         }
     }
 

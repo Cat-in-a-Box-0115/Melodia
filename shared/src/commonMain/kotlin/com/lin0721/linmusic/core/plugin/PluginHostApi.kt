@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.plugin
 
+import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.CoroutineDispatcher
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.io.File
@@ -25,6 +27,8 @@ import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.concurrent.ConcurrentHashMap
+
+private const val TAG = "PluginHostApi"
 
 // 宿主 API 拒绝或执行失败，消息原样回给插件
 class PluginCallException(message: String) : Exception(message)
@@ -37,9 +41,14 @@ class PluginHostApi(
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     private val notices: PluginNotices = PluginNotices(),
     private val netease: PluginNeteaseApi? = null,
-    private val content: PluginContent? = null
+    private val content: PluginContent? = null,
+    private val confirmations: PluginConfirmations = PluginConfirmations(),
+    private val links: PluginLinks = PluginLinks(),
+    private val now: () -> Long = System::currentTimeMillis
 ) {
     private val storageLocks = ConcurrentHashMap<String, Mutex>()
+    private val linkDenials = ConcurrentHashMap<String, Long>()
+    private val pendingLinks = ConcurrentHashMap.newKeySet<String>()
     private val json = Json { prettyPrint = false }
 
     // 插件页面的绑定数据，key 为 插件 id/页面 id
@@ -60,6 +69,7 @@ class PluginHostApi(
         "player.enqueue" -> enqueue(manifest, args.asObject(method))
         "ui.setState" -> setUiState(manifest, args.asObject(method))
         "ui.toast" -> toast(manifest, args.asObject(method))
+        METHOD_OPEN_URL -> openUrl(manifest, args.asObject(method))
         "settings.get" -> settingValue(manifest, args.asObject(method).requireString("key"))
         "settings.all" -> settings(manifest)
         METHOD_NETEASE -> neteaseCall(manifest, args.asObject(method))
@@ -68,6 +78,8 @@ class PluginHostApi(
         "content.open" -> openContent(manifest, args.asObject(method))
         else -> throw PluginCallException("不支持的调用 $method")
     }
+
+    fun notice(message: String) = notices.post(message)
 
     // 页面上的开关与输入框写回状态
     fun setUiField(pluginId: String, pageId: String, field: String, value: JsonElement) {
@@ -111,6 +123,36 @@ class PluginHostApi(
         return JsonNull
     }
 
+    // 每次都要用户确认，弹窗只显示域名，避免把链接里的令牌展示出来
+    private suspend fun openUrl(manifest: PluginManifest, args: JsonObject): JsonElement {
+        require(manifest, PluginPermission.UI_OPEN_URL)
+        val url = args.requireString("url").trim()
+        if (url.length > MAX_URL_LENGTH) throw PluginCallException("网址过长")
+        val uri = try {
+            URI(url)
+        } catch (e: URISyntaxException) {
+            throw PluginCallException("网址无效")
+        }
+        if (uri.scheme?.lowercase() != "https") throw PluginCallException("只能打开 https 网址")
+        val host = uri.host?.lowercase()?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: throw PluginCallException("网址无效")
+        // 拒绝后冷却一段时间，插件不能靠重试反复弹窗
+        val denied = linkDenials[manifest.id]
+        if (denied != null && now() - denied < LINK_DENIAL_COOLDOWN_MS) throw PluginCallException("用户刚拒绝了打开网页，请稍后再试")
+        // 同一插件同时只排一个确认，避免连发请求在拒绝后继续逐个弹窗
+        if (!pendingLinks.add(manifest.id)) throw PluginCallException("已有打开网页的请求在等待确认")
+        var accepted = false
+        try {
+            accepted = confirmations.ask("打开网页？", "「${manifest.name}」请求在浏览器打开 $host 的网页。")
+        } finally {
+            pendingLinks.remove(manifest.id)
+            // 超时或调用被取消也按拒绝冷却，否则插件能靠超时反复弹窗
+            if (!accepted) linkDenials[manifest.id] = now()
+        }
+        if (!accepted) throw PluginCallException("用户拒绝了打开网页")
+        links.open(uri.toASCIIString())
+        return JsonNull
+    }
+
     private suspend fun settingValue(manifest: PluginManifest, key: String): JsonElement {
         if (manifest.contributes.settings.none { it.id == key }) throw PluginCallException("清单里没有设置项 $key")
         return settings(manifest)[key] ?: JsonNull
@@ -138,7 +180,7 @@ class PluginHostApi(
         var method = (args.string("method") ?: "GET").uppercase()
         if (method !in HTTP_METHODS) throw PluginCallException("不支持的请求方法 $method")
         val headers = (args["headers"] as? JsonObject)?.mapNotNull { (key, value) ->
-            val text = (value as? JsonPrimitive)?.content ?: return@mapNotNull null
+            val text = (value as? JsonPrimitive)?.contentOrNull ?: return@mapNotNull null
             if (key.equals("Host", ignoreCase = true)) null else key to text
         }?.toMap().orEmpty()
         var body: String? = when (val value = args["body"]) {
@@ -233,14 +275,23 @@ class PluginHostApi(
         val file = storageFile(manifest, fileName)
         if (!file.isFile) return JsonObject(emptyMap())
         return try {
-            Json.parseToJsonElement(file.readText()) as? JsonObject ?: JsonObject(emptyMap())
+            Json.parseToJsonElement(file.readText()) as? JsonObject ?: preserveCorrupt(manifest, file)
         } catch (e: SerializationException) {
-            JsonObject(emptyMap())
+            preserveCorrupt(manifest, file)
         } catch (e: IllegalArgumentException) {
-            JsonObject(emptyMap())
+            preserveCorrupt(manifest, file)
         } catch (e: IOException) {
             throw PluginCallException("读取插件数据失败")
         }
+    }
+
+    // 损坏的文件留一份，下次写入不会把线索也覆盖掉
+    private fun preserveCorrupt(manifest: PluginManifest, file: File): JsonObject {
+        AppLogger.w(TAG, "[${manifest.id}] ${file.name} 损坏，已另存并按空数据处理")
+        val copy = File(file.parentFile, "${file.name}.corrupt")
+        copy.delete()
+        file.renameTo(copy)
+        return JsonObject(emptyMap())
     }
 
     private fun writeStorage(manifest: PluginManifest, data: JsonObject, fileName: String = STORAGE_FILE) {
@@ -248,15 +299,8 @@ class PluginHostApi(
         if (text.toByteArray(Charsets.UTF_8).size > MAX_STORAGE_BYTES) {
             throw PluginCallException("插件数据超过 ${MAX_STORAGE_BYTES / 1024 / 1024}MB")
         }
-        val file = storageFile(manifest, fileName)
         try {
-            file.parentFile?.mkdirs()
-            val temp = File(file.parentFile, "$fileName.tmp")
-            temp.writeText(text)
-            if (!temp.renameTo(file)) {
-                file.delete()
-                if (!temp.renameTo(file)) throw IOException("无法替换数据文件")
-            }
+            writeFileAtomically(storageFile(manifest, fileName), text)
         } catch (e: IOException) {
             throw PluginCallException("保存插件数据失败")
         }
@@ -301,7 +345,7 @@ class PluginHostApi(
             songId = songId,
             title = args.string("title")?.take(MAX_TEXT_LENGTH) ?: "",
             artist = args.string("artist")?.take(MAX_TEXT_LENGTH) ?: "",
-            coverUrl = args.string("cover")?.take(MAX_TEXT_LENGTH) ?: ""
+            coverUrl = args.string("cover")?.take(MAX_TEXT_LENGTH)?.let { PluginBinding.cover(manifest, it) } ?: ""
         )
         return control(manifest) { it.appendToQueue(listOf(item)) }
     }
@@ -322,13 +366,12 @@ class PluginHostApi(
     private fun JsonElement.asObject(method: String): JsonObject =
         this as? JsonObject ?: throw PluginCallException("$method 参数应为对象")
 
-    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
-
     private fun JsonObject.requireString(key: String): String =
         string(key)?.takeIf { it.isNotEmpty() } ?: throw PluginCallException("缺少参数 $key")
 
     companion object {
         const val METHOD_NETEASE = "netease.call"
+        const val METHOD_OPEN_URL = "ui.openUrl"
         private const val STORAGE_FILE = "storage.json"
         private const val SETTINGS_FILE = "settings.json"
         private const val MAX_TOAST_LENGTH = 120
@@ -336,6 +379,8 @@ class PluginHostApi(
         private const val MAX_UI_STATE_CHARS = 256 * 1024
         private const val MAX_TEXT_LENGTH = 500
         private const val MAX_REDIRECTS = 5
+        private const val MAX_URL_LENGTH = 4096
+        private const val LINK_DENIAL_COOLDOWN_MS = 30_000L
         private val HTTP_METHODS = setOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD")
         private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 

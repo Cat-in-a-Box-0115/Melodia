@@ -27,6 +27,60 @@ class PluginParserTest {
     ) as PluginParseResult.Success)
 
     @Test
+    fun `原生插件可以不提供扩展，并自动带上 native 权限`() {
+        val manifest = (PluginParser.parse(
+            """{"format":2,"kind":"native","id":"com.example.demo","name":"示例","version":"1.0.0","apiVersion":"1.0","main":"com.example.Main"}""",
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest
+        assertEquals(PluginKind.NATIVE, manifest.kind)
+        assertEquals("com.example.Main", manifest.main)
+        assertTrue(PluginPermission.NATIVE in manifest.permissions)
+    }
+
+    @Test
+    fun `动态背景的取值被限制，沙盒没有图片时忽略`() {
+        val result = contributesV2(
+            """"backdrops":[
+                {"id":"a","name":"序列","fps":99,"dim":2,"paneOpacity":-1,"frames":["assets/1.png","../x.png"]},
+                {"id":"b"}
+            ]"""
+        )
+        val entry = result.manifest.contributes.backdrops.single()
+        assertEquals(PluginBackdropEntry("a", "序列", 30, 1f, 0f, listOf("assets/1.png")), entry)
+        assertEquals(2, result.warnings.size)
+    }
+
+    @Test
+    fun `原生插件的动态背景可以不带图片`() {
+        val manifest = (PluginParser.parse(
+            """{"format":2,"kind":"native","id":"com.example.demo","name":"示例","version":"1.0.0","apiVersion":"1.0",
+                "main":"com.example.Main","contributes":{"backdrops":[{"id":"a"}]}}""",
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest
+        assertEquals(12, manifest.contributes.backdrops.single().fps)
+    }
+
+    @Test
+    fun `Compose 页面只有原生插件能用，并固定在侧栏`() {
+        val sandbox = contributesV2(""""pages":[{"id":"a","title":"页","compose":true}],"playerLayouts":{"desktop.playerBar":"ui/bar.json"}""")
+        assertTrue(sandbox.manifest.contributes.pages.isEmpty())
+        val page = (PluginParser.parse(
+            """{"format":2,"kind":"native","id":"com.example.demo","name":"示例","version":"1.0.0","apiVersion":"1.0","main":"com.example.Main",
+                "contributes":{"pages":[{"id":"a","title":"页","compose":true,"placement":"nowPlayingCard"}]}}""",
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest.contributes.pages.single()
+        assertTrue(page.compose)
+        assertEquals(PluginPagePlacement.SIDEBAR, page.placement)
+    }
+
+    @Test
+    fun `沙盒插件申请 native 权限时被忽略`() {
+        val result = parseV2(""","permissions":["native"]""") as PluginParseResult.Success
+        assertTrue(PluginPermission.NATIVE !in result.manifest.permissions)
+        assertEquals(1, result.warnings.size)
+    }
+
+    @Test
     fun `解析命令与菜单`() {
         val result = contributesV2(
             """"commands":[{"id":"share","title":"分享"},{"id":"bad"}],
@@ -93,7 +147,8 @@ class PluginParserTest {
     @Test
     fun `原生插件暂不能导入且 Android 明确拒绝`() {
         assertEquals("Android 不支持原生插件", reasonV2(""","kind":"native"""", PluginPlatform.ANDROID))
-        assertEquals("当前版本还不支持原生插件", reasonV2(""","kind":"native"""", PluginPlatform.DESKTOP))
+        assertTrue(reasonV2(""","kind":"native","apiVersion":"1.0"""", PluginPlatform.DESKTOP).contains("main"))
+        assertTrue(reasonV2(""","kind":"native","main":"com.example.Main"""", PluginPlatform.DESKTOP).contains("apiVersion"))
     }
 
     @Test
@@ -105,7 +160,8 @@ class PluginParserTest {
     fun `apiVersion 按主版本和次版本校验`() {
         assertEquals("1.0", (parseV2(""","apiVersion":"1.0"""") as PluginParseResult.Success).manifest.apiVersion)
         assertTrue(reasonV2(""","apiVersion":"2.0"""").contains("2.0"))
-        assertTrue(reasonV2(""","apiVersion":"1.9"""").contains("1.9"))
+        val newer = "1.${PLUGIN_API_MINOR + 1}"
+        assertTrue(reasonV2(""","apiVersion":"$newer"""").contains(newer))
         assertTrue(reasonV2(""","apiVersion":"latest"""").contains("apiVersion"))
     }
 
@@ -139,6 +195,15 @@ class PluginParserTest {
         assertEquals("lrc", manifest.contributes.lyricsSources.single().name)
         assertEquals(listOf("ui/bar.json", "ui/stats.json"), manifest.contributes.uiFiles)
         assertTrue(manifest.contributes.needsScript)
+        assertTrue(result.warnings.isEmpty())
+    }
+
+    @Test
+    fun `页面可以放在设置里`() {
+        val result = success(
+            ""","contributes":{"pages":[{"id":"account","title":"账号","ui":{"type":"column"},"placement":"settings"}]}"""
+        )
+        assertEquals(PluginPagePlacement.SETTINGS, result.manifest.contributes.pages.single().placement)
         assertTrue(result.warnings.isEmpty())
     }
 

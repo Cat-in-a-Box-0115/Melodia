@@ -5,6 +5,8 @@ import com.lin0721.linmusic.core.preferences.PlayerCardEntries
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import androidx.activity.compose.BackHandler
@@ -160,7 +162,7 @@ fun FullPlayerScreen(
 
 @Composable
 private fun PlayerTintScope(immersive: Boolean, content: @Composable () -> Unit) {
-    if (immersive) ImmersiveTheme(content) else content()
+    if (immersive) ImmersiveTheme(base = null, content = content) else content()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -415,14 +417,7 @@ private fun FullPlayerScreenContent(
 
     val title = currentTrack.mediaMetadata.title?.toString() ?: ""
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
-    val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
-    val playbackLevel by viewModel.playerManager.playbackLevel.collectAsStateWithLifecycle()
-    // 档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
-    val qualityLabel = if (showPlaybackQuality && !podcast.isPodcast) {
-        playbackLevel
-            ?.takeIf { it.songId.toString() == currentTrack.mediaId }
-            ?.let { getQualityBadgeLabel(it.level) }
-    } else null
+    val qualityLabel = rememberPlaybackQualityLabel(viewModel, currentTrack.mediaId, podcast.isPodcast)
     val rawCoverUrl = normalizeFullPlayerCoverUrl(
         currentTrack.mediaMetadata.artworkUri?.toString().orEmpty()
     )
@@ -485,6 +480,9 @@ private fun FullPlayerScreenContent(
     val pluginLayouts = LocalPlayerLayouts.current
     val pluginFullLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER]
     val pluginWideLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE]
+    val pluginLyricsLayout = pluginLayouts[PlayerLayoutArea.ANDROID_LYRICS]
+    // 插件关掉卡片流时首屏就是整页
+    val showInfoCards = pluginFullLayout?.frame?.cards != false
     val coverFitInsetPx = rememberCoverFitInsetPx(
         listState = listState,
         // 插件布局的首屏高度固定为一屏，不存在需要缩封面的情况
@@ -625,7 +623,7 @@ private fun FullPlayerScreenContent(
         }
     }
 
-    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null) {
+    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null || pluginLyricsLayout != null) {
         FullPlayerLayoutParts(
             title = displayedTitle,
             artist = displayedArtist,
@@ -651,7 +649,7 @@ private fun FullPlayerScreenContent(
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
-            onMiniLyricClick = scrollToLyricsCard,
+            onMiniLyricClick = if (showInfoCards) scrollToLyricsCard else ({ isLyricsFullScreen = true }),
             onSeek = viewModel::seekToTime,
             onTogglePlay = onTogglePlay,
             onPlayNext = viewModel.playerManager::playNext,
@@ -663,7 +661,19 @@ private fun FullPlayerScreenContent(
             onQueueClick = { showQueueSheet = true },
             onShareClick = { shareCurrentSong() },
             onMoreClick = { showMoreOptionsSheet = true },
-            onOpenFullScreenLyrics = { isLyricsFullScreen = true }
+            onOpenFullScreenLyrics = { isLyricsFullScreen = true },
+            onClose = onClose,
+            onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+            isSidebarFullscreen = isSidebarFullscreen,
+            playContext = playContext,
+            podcastRadioName = podcast.radioName,
+            onPlaylistClick = openPlaylistSource,
+            activeLyricIndices = activeLyricIndices,
+            lyricPositionProvider = lyricPositionProvider,
+            lyricsHighlightColor = if (MelodiaColors.IsDark) colors.textHighlight else MelodiaColors.TextTertiary,
+            sleepTimerActive = sleepTimerRemaining > 0L,
+            onSleepTimerClick = { showTimerSheet = true },
+            onCommentsClick = { showCommentsSheet = true }
         )
     } else {
         null
@@ -744,11 +754,11 @@ private fun FullPlayerScreenContent(
                         start = startInset,
                         end = endInset,
                         top = melodiaStatusBarTopPadding(),
-                        bottom = (if (allCardsHidden) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
+                        bottom = (if (allCardsHidden || !showInfoCards) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
                     )
                 ) {
                     if (pluginFullLayout != null && pluginParts != null) {
-                        fullPlayerPluginSection(pluginFullLayout, pluginParts) { barModifier ->
+                        fullPlayerPluginSection(pluginFullLayout, pluginParts, isLandscape) { barModifier ->
                             FullPlayerSourceBar(
                                 playContext = playContext,
                                 podcastRadioName = podcast.radioName,
@@ -812,7 +822,7 @@ private fun FullPlayerScreenContent(
                         fillTail = fillTail
                     )
 
-                    fullPlayerInfoSection(
+                    if (showInfoCards) fullPlayerInfoSection(
                         songState = songDetailState,
                         colors = colors,
                         commentsState = commentsState,
@@ -841,7 +851,7 @@ private fun FullPlayerScreenContent(
                     onClose = onClose,
                     title = title,
                     artist = artist,
-                    showTitle = scrollMetrics.showTitleInBar,
+                    showTitle = scrollMetrics.showTitleInBar && showInfoCards,
                     isPlaying = isPlaying,
                     onTogglePlay = onTogglePlay,
                     isLiked = if (podcast.isPodcast) podcast.subscribed else songDetailState.isLiked,
@@ -968,10 +978,18 @@ private fun FullPlayerScreenContent(
                 onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
                 onSeek = viewModel::seekToTime,
                 onLyricsVisibleChange = { isWideLyricsVisible = it },
+                leftFraction = pluginWideLayout?.frame?.split,
                 pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
                     {
-                        PlayerLayoutView(pluginWideLayout, Modifier.fillMaxSize()) { node, nodeModifier ->
-                            pluginParts.Component(node, nodeModifier)
+                        BoxWithConstraints(Modifier.fillMaxSize()) {
+                            CompositionLocalProvider(
+                                LocalLayoutCoverColors provides pluginParts.coverColors,
+                                LocalLayoutEnvironment provides pluginParts.environment(pluginWideLayout.pluginId)
+                            ) {
+                                PlayerLayoutView(pluginWideLayout.select(maxWidth.value, isLandscape), Modifier.fillMaxSize(), pluginParts.binding::prepare) { node, nodeModifier ->
+                                    pluginParts.Component(node, nodeModifier)
+                                }
+                            }
                         }
                     }
                 } else {
@@ -1024,7 +1042,12 @@ private fun FullPlayerScreenContent(
             onPlayPrevious = viewModel.playerManager::playPrevious,
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
-            onMoreClick = { showMoreOptionsSheet = true }
+            onMoreClick = { showMoreOptionsSheet = true },
+            pluginContent = if (pluginLyricsLayout != null && pluginParts != null) {
+                { slots -> LyricsPagePluginContent(pluginLyricsLayout, pluginParts, isLandscape, slots) }
+            } else {
+                null
+            }
         )
 
         if (showShareCard) {
@@ -1262,4 +1285,13 @@ private fun FullPlayerScreenContent(
             )
         }
     }
+}
+
+// 当前歌曲的实际音质短标签；档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
+@Composable
+fun rememberPlaybackQualityLabel(viewModel: PlayerViewModel, mediaId: String, isPodcast: Boolean): String? {
+    val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
+    val playbackLevel by viewModel.playerManager.playbackLevel.collectAsStateWithLifecycle()
+    if (!showPlaybackQuality || isPodcast) return null
+    return playbackLevel?.takeIf { it.songId.toString() == mediaId }?.let { getQualityBadgeLabel(it.level) }
 }

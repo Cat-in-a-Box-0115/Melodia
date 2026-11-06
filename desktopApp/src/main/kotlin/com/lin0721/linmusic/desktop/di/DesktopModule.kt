@@ -28,6 +28,7 @@ import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.NeteaseSongLookup
 import com.lin0721.linmusic.core.source.LxAudioSourceProvider
+import com.lin0721.linmusic.core.plugin.NativePluginHost
 import com.lin0721.linmusic.core.source.LxPluginRuntime
 import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
@@ -52,12 +53,14 @@ import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryStore
 import com.lin0721.linmusic.desktop.data.local.LocalMatcher
 import com.lin0721.linmusic.desktop.data.local.LocalScanner
+import com.lin0721.linmusic.desktop.plugin.DesktopNativePluginHost
 import com.lin0721.linmusic.desktop.plugin.GraalLxPluginRuntime
 import com.lin0721.linmusic.desktop.plugin.GraalScriptSandboxFactory
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.player.SilentPlaybackController
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
+import com.lin0721.linmusic.desktop.player.spectrum.SpectrumHub
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
 import com.lin0721.linmusic.desktop.ui.local.LocalMusicActions
 import com.lin0721.linmusic.desktop.ui.settings.DesktopSettingsViewModel
@@ -132,6 +135,12 @@ private fun createPlaybackController(
 
 private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferencesFile(name))
 
+// 启动参数，须先于依赖注入设置
+object DesktopLaunchOptions {
+    @Volatile
+    var safeMode: Boolean = false
+}
+
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
@@ -141,6 +150,10 @@ val desktopPlatformModule = module {
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
     single<ScriptSandboxFactory> { GraalScriptSandboxFactory() }
+    single { SpectrumHub() }
+    single<NativePluginHost> {
+        DesktopNativePluginHost(get(), get(), get(), get(), safeMode = DesktopLaunchOptions.safeMode, spectrumFrames = get<SpectrumHub>().frames)
+    }
     single { GraalLxPluginRuntime(factory = get()) } bind LxPluginRuntime::class
     single<AudioSourceProvider>(named("lx")) { LxAudioSourceProvider(get<LxPluginRuntime>(), get(), getAll<PlatformSearchProvider>()) }
     single { SessionMonitor(get(), get()) }
@@ -215,7 +228,11 @@ val desktopPlatformModule = module {
     single { GraalAfpFingerprintEngine() }
     single {
         val engine = get<GraalAfpFingerprintEngine>()
-        DesktopRecognition(get(), get(), get(), engine, get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), warmUp = engine::warmUp)
+        DesktopRecognition(
+            get(), get(), get(), engine, get(), CoroutineScope(SupervisorJob() + Dispatchers.Main),
+            warmUp = engine::warmUp,
+            exclusiveOutput = get<SettingsPreferences>().exclusiveOutput
+        )
     }
     single {
         val amllLyricsClient = get<AmllLyricsClient>()

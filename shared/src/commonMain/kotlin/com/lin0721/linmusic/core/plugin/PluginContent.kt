@@ -27,7 +27,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
-import java.util.concurrent.ConcurrentHashMap
+import java.util.Collections
 import kotlin.math.absoluteValue
 
 private const val TAG = "PluginContent"
@@ -36,6 +36,9 @@ private const val ID_SEPARATOR = '\u0000'
 private const val MIN_COLLECTION_ID = 1000L
 private const val MAX_TRACKS = 1000
 private const val MAX_TEXT = 200
+private const val MAX_ID_LENGTH = 2000
+private const val MAX_REMEMBERED_COLLECTIONS = 1000
+private const val MAX_REMEMBERED_TRACKS = 10_000
 
 // 插件内容没有评论、收藏、分享和下载，页面据此隐藏入口
 fun isPluginCollectionId(id: Long): Boolean = id <= -MIN_COLLECTION_ID
@@ -46,8 +49,8 @@ private data class CollectionRef(val pluginId: String, val sourceId: String, val
 
 // 插件内容进入原生页面的桥：歌单用负数合成 id，歌曲用外部歌曲表示，页面与播放器不用区分来源
 class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDirectResolver {
-    private val collections = ConcurrentHashMap<Long, CollectionRef>()
-    private val tracks = ConcurrentHashMap<Long, ExternalTrack>()
+    private val collections = boundedMap<Long, CollectionRef>(MAX_REMEMBERED_COLLECTIONS)
+    private val tracks = boundedMap<Long, ExternalTrack>(MAX_REMEMBERED_TRACKS)
     private val _opens = MutableSharedFlow<PluginContentOpen>(extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val opens: SharedFlow<PluginContentOpen> = _opens.asSharedFlow()
 
@@ -70,12 +73,12 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
         val source = source(ref.pluginId, ref.sourceId) ?: return Result.failure(IllegalStateException("提供这个内容的插件已停用"))
         val data = source.value.playlist(ref.contentId) as? JsonObject
             ?: return Result.failure(IllegalStateException("插件没有返回内容"))
-        val parsed = parseTracks(data["tracks"], ref.pluginId, ref.sourceId).map { it.toPlaylistTrack() }
+        val parsed = parseTracks(data["tracks"], source).map { it.toPlaylistTrack() }
         return Result.success(
             PlaylistDetail(
                 id = id,
                 name = data.text("name").ifEmpty { ref.contentId },
-                coverImgUrl = data.text("cover"),
+                coverImgUrl = source.value.cover(data.text("cover")),
                 description = data.text("description").ifEmpty { null },
                 creator = PlaylistCreator(nickname = source.pluginName),
                 tracks = parsed,
@@ -88,7 +91,7 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
     suspend fun search(keyword: String, offset: Int, limit: Int): List<ExternalTrack> = coroutineScope {
         registry.get(ExtensionPoints.CONTENT_SOURCE).filter { it.value.searchable }.map { source ->
             async {
-                parseTracks(source.value.search(keyword, offset, limit), source.pluginId, source.localId)
+                parseTracks(source.value.search(keyword, offset, limit), source)
             }
         }.awaitAll().flatten()
     }
@@ -114,20 +117,21 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
         registry.get(ExtensionPoints.CONTENT_SOURCE).firstOrNull { it.pluginId == pluginId && it.localId == sourceId }
 
     // 单项缺少 id 或标题时跳过，不影响其他歌曲
-    private fun parseTracks(value: JsonElement?, pluginId: String, sourceId: String): List<ExternalTrack> {
+    private fun parseTracks(value: JsonElement?, source: Extension<ContentSourceExtension>): List<ExternalTrack> {
         val array = value as? JsonArray ?: return emptyList()
         return array.take(MAX_TRACKS).mapNotNull { element ->
             val item = element as? JsonObject ?: return@mapNotNull null
-            val id = item.text("id")
+            // id 要原样传回插件，不能裁剪，超长的直接跳过
+            val id = item.string("id")?.takeIf { it.isNotBlank() && it.length <= MAX_ID_LENGTH } ?: return@mapNotNull null
             val title = item.text("title")
-            if (id.isEmpty() || title.isEmpty()) return@mapNotNull null
+            if (title.isEmpty()) return@mapNotNull null
             ExternalTrack(
-                id = listOf(TRACK_ID_PREFIX, pluginId, sourceId, id).joinToString(ID_SEPARATOR.toString()),
+                id = listOf(TRACK_ID_PREFIX, source.pluginId, source.localId, id).joinToString(ID_SEPARATOR.toString()),
                 name = title,
                 artists = item.text("artist"),
                 albumName = item.text("album"),
                 durationMs = (item["durationMs"] as? JsonPrimitive)?.longOrNull?.coerceAtLeast(0) ?: 0,
-                coverUrl = item.text("cover"),
+                coverUrl = source.value.cover(item.text("cover")),
                 platform = MusicPlatform.LX
             ).also { tracks[it.queueSongId] = it }
         }
@@ -138,9 +142,15 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
         return if (parts.size == 4 && parts[0] == TRACK_ID_PREFIX) Triple(parts[1], parts[2], parts[3]) else null
     }
 
-    private fun JsonObject.text(key: String): String =
-        (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.take(MAX_TEXT).orEmpty()
+    private fun JsonObject.text(key: String): String = string(key)?.trim()?.take(MAX_TEXT).orEmpty()
 }
+
+// 只留最近用到的，避免长时间运行后无限增长
+private fun <K, V> boundedMap(capacity: Int): MutableMap<K, V> = Collections.synchronizedMap(
+    object : LinkedHashMap<K, V>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?): Boolean = size > capacity
+    }
+)
 
 // 聚合搜索的「自定义插件」平台
 class PluginPlatformSearchProvider(private val content: PluginContent) : PlatformSearchProvider {

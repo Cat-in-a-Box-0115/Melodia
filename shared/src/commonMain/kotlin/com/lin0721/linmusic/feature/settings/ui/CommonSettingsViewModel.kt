@@ -40,6 +40,7 @@ class CommonSettingsViewModel(
     val crossfadeDurationMs = settingsPreferences.crossfadeDurationMs.asState(CrossfadePolicy.DEFAULT_DURATION_MS)
     val smartCrossfadeEnabled = settingsPreferences.smartCrossfadeEnabled.asState(false)
     val loudnessNormalizationEnabled = settingsPreferences.loudnessNormalizationEnabled.asState(false)
+    val exclusiveOutput = settingsPreferences.exclusiveOutput.asState(false)
     val uiScalePercent = settingsPreferences.uiScalePercent.asState(UiScale.DEFAULT_PERCENT)
     val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
     val themeSettings = settingsPreferences.themeSettings.asState(ThemeSettings())
@@ -47,6 +48,7 @@ class CommonSettingsViewModel(
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
+    val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
     val unmRemoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.asState(false)
     val unmServerUrl = sourcePreferences.unmServerUrl.asState("")
     val unmAutoMatch = sourcePreferences.unmAutoMatch.asState(true)
@@ -76,6 +78,8 @@ class CommonSettingsViewModel(
 
     fun updateLoudnessNormalizationEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLoudnessNormalizationEnabled(enabled) }
 
+    fun updateExclusiveOutput(enabled: Boolean) = launchSave { settingsPreferences.saveExclusiveOutput(enabled) }
+
     fun updateUiScalePercent(percent: Int) = launchSave { settingsPreferences.saveUiScalePercent(percent) }
 
     fun updateUiAnimationsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveUiAnimationsEnabled(enabled) }
@@ -91,6 +95,7 @@ class CommonSettingsViewModel(
     fun updateFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveFallbackEnabled(enabled) }
 
     fun updateCommunityPriority(enabled: Boolean) = launchSave { sourcePreferences.saveCommunityPriority(enabled) }
+    fun updatePluginBeforeOfficial(enabled: Boolean) = launchSave { sourcePreferences.savePluginBeforeOfficial(enabled) }
 
     fun updateUnmRemoteFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveUnmRemoteFallbackEnabled(enabled) }
 

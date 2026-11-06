@@ -5,11 +5,17 @@ import com.lin0721.linmusic.core.preferences.PlayerCardEntries
 import com.lin0721.linmusic.core.plugin.PluginCardView
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import androidx.compose.runtime.CompositionLocalProvider
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.desktop.ui.player.PlayerBarParts
 import com.lin0721.linmusic.desktop.ui.player.rememberPlaybackParts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -178,13 +184,33 @@ fun NowPlayingPanel(
 // 插件布局替换封面与标题区；封面默认占满面板宽度，maxSize 限制最大边长
 @Composable
 private fun PluginNowPlayingHeader(
-    root: PlayerLayoutNode,
+    spec: PlayerLayoutSpec,
     track: NowPlaying,
     controller: PlaybackController,
     playerViewModel: PlayerViewModel
 ) {
     val parts = rememberPlaybackParts(controller, playerViewModel)
-    PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp)) { node, modifier ->
+    val coverColors = rememberLayoutCoverColors(track.artworkUri)
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val binding = parts.bindingState()
+        CompositionLocalProvider(
+            LocalLayoutCoverColors provides coverColors,
+            LocalLayoutEnvironment provides parts.environment(spec.pluginId, binding)
+        ) {
+            PluginNowPlayingTree(spec.select(maxWidth.value, landscape = true), track, parts, binding)
+        }
+    }
+}
+
+@Composable
+private fun PluginNowPlayingTree(
+    root: PlayerLayoutNode,
+    track: NowPlaying,
+    parts: PlayerBarParts,
+    binding: PlayerBindingState
+) {
+    val playerViewModel = parts.playerViewModel
+    PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp), binding::prepare) { node, modifier ->
         val scale = node.size.scale
         when (node.type) {
             LayoutNodeType.COVER -> BoxWithConstraints(modifier) {

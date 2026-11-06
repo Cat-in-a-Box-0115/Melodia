@@ -81,6 +81,8 @@ import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
@@ -377,6 +379,7 @@ internal fun settingsEntries(
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
+    val pluginBeforeOfficial by common.pluginBeforeOfficial.collectAsState()
     val unmServerUrl by common.unmServerUrl.collectAsState()
     val unmRemoteFallbackEnabled by common.unmRemoteFallbackEnabled.collectAsState()
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
@@ -392,6 +395,7 @@ internal fun settingsEntries(
     val crossfadeDurationMs by common.crossfadeDurationMs.collectAsState()
     val smartCrossfadeEnabled by common.smartCrossfadeEnabled.collectAsState()
     val loudnessNormalizationEnabled by common.loudnessNormalizationEnabled.collectAsState()
+    val exclusiveOutput by common.exclusiveOutput.collectAsState()
     val uiScalePercent by common.uiScalePercent.collectAsState()
     val uiAnimationsEnabled by common.uiAnimationsEnabled.collectAsState()
     val themeSettings by common.themeSettings.collectAsState()
@@ -477,6 +481,15 @@ internal fun settingsEntries(
                 }
             )
         }
+        add(
+            rowEntry(
+                "exclusiveOutput", SettingsCategory.Playback, "独占输出",
+                subtitle = "绕过系统混音直接输出到设备，播放期间其他应用没有声音；开启后会关闭歌曲淡入淡出，也无法识别系统声音",
+                keywords = listOf("独占", "wasapi", "usb", "dac", "bit-perfect", "位完美", "采样率")
+            ) {
+                SettingSwitch(exclusiveOutput, onChange = common::updateExclusiveOutput)
+            }
+        )
 
         add(
             rowEntry(
@@ -504,6 +517,15 @@ internal fun settingsEntries(
                     keywords = listOf("lx", "unm", "插件", "换源")
                 ) {
                     SettingSwitch(communityPriority, onChange = common::updateCommunityPriority)
+                }
+            )
+            add(
+                rowEntry(
+                    "pluginBeforeOfficial", SettingsCategory.Source, "插件优先于官方音源",
+                    subtitle = "开启后每首歌先由社区源插件解析，未命中再用官方链接。插件音质可能低于官方，没有响度均衡，可能匹配到其他版本，起播也会变慢",
+                    keywords = listOf("lx", "插件", "官方", "优先", "换源", "vip")
+                ) {
+                    SettingSwitch(pluginBeforeOfficial, onChange = common::updatePluginBeforeOfficial)
                 }
             )
         }
@@ -895,7 +917,7 @@ internal fun settingsEntries(
                 val update = availableUpdate
                 SettingRow(
                     title = "当前版本",
-                    subtitle = update?.let { "发现新版本 ${it.versionName}${if (it.isPrerelease) "（测试版）" else ""}" }
+                    subtitle = update?.let { "${appVersionLabel()} → 发现新版本 ${it.versionName}${if (it.isPrerelease) "（测试版）" else ""}" }
                         ?: appVersionLabel(),
                     subtitleColor = if (update != null) DesktopColors.Accent else DesktopColors.TextGray
                 ) {
@@ -935,9 +957,23 @@ internal fun settingsEntries(
                 })
             }
         )
+        add(
+            rowEntry(
+                "qqGroup", SettingsCategory.About, "QQ 交流群",
+                subtitle = QQ_GROUP,
+                keywords = listOf("qq", "群号", "反馈", "加群")
+            ) {
+                val clipboard = LocalClipboardManager.current
+                SettingsActionButton("复制", onClick = {
+                    clipboard.setText(AnnotatedString(QQ_GROUP))
+                    navigator.showMessage("已复制群号")
+                })
+            }
+        )
     }
 }
 
+private const val QQ_GROUP = "331832966"
 private const val LOCAL_MUSIC_GROUP = "本地音乐"
 private val LocalMinDurationOptions = listOf(0, 30, 60, 90, 120)
 

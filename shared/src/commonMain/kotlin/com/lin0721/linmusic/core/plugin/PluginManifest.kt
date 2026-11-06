@@ -2,12 +2,26 @@ package com.lin0721.linmusic.core.plugin
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 0
+const val PLUGIN_API_MINOR = 9
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
+
+// 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
+object PluginHostInfo {
+    @Volatile
+    var appVersion: String? = null
+}
+
+fun minAppVersionFailure(minVersion: String): String? {
+    val current = PluginHostInfo.appVersion ?: return null
+    return if (comparePluginVersions(current, minVersion) < 0) "插件需要 Melodia $minVersion 或更新版本，当前是 $current" else null
+}
+
+internal fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 // 插件清单 permissions 里的取值，改名会让已发布的插件失效
 enum class PluginPermission(val key: String, val label: String) {
@@ -18,10 +32,12 @@ enum class PluginPermission(val key: String, val label: String) {
     AUDIO_SOURCE("audioSource", "作为音源提供播放链接"),
     LYRICS_SOURCE("lyricsSource", "作为歌词源提供歌词"),
     UI_NOTIFY("ui.notify", "显示应用内提示"),
+    UI_OPEN_URL("ui.openUrl", "在浏览器打开网页，每次打开前询问"),
     LIBRARY_READ("library.read", "读取你的歌单与红心列表"),
     CONTENT_SOURCE("contentSource", "提供歌曲、歌单与搜索结果"),
     NETEASE_READ("netease.read", "以你的账号读取网易云内容"),
-    NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注");
+    NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注"),
+    NATIVE("native", "在主进程运行原生代码，不受其他权限限制");
 
     companion object {
         fun fromKey(key: String): PluginPermission? = entries.firstOrNull { it.key == key }
@@ -40,7 +56,9 @@ enum class PluginKind(val key: String) {
 // 页面入口位置
 enum class PluginPagePlacement(val key: String) {
     SIDEBAR("sidebar"),
-    NOW_PLAYING_CARD("nowPlayingCard");
+    NOW_PLAYING_CARD("nowPlayingCard"),
+    // 从插件列表的设置按钮打开
+    SETTINGS("settings");
 
     companion object {
         fun fromKey(key: String): PluginPagePlacement? = entries.firstOrNull { it.key == key }
@@ -85,7 +103,9 @@ val PLAYER_LAYOUT_AREAS = listOf(
     "android.fullPlayerWide",
     "android.miniPlayer",
     "desktop.playerBar",
-    "desktop.nowPlaying"
+    "desktop.nowPlaying",
+    "android.lyrics",
+    "desktop.lyricsView"
 )
 
 // 界面描述可以是 ui/ 下的文件，也可以内联在清单里
@@ -99,7 +119,9 @@ data class PluginPage(
     val title: String,
     val icon: String?,
     val ui: PluginUiRef,
-    val placement: PluginPagePlacement
+    val placement: PluginPagePlacement,
+    // 原生插件用 Compose 绘制，没有声明式界面
+    val compose: Boolean = false
 )
 
 data class PluginSourceEntry(val id: String, val name: String)
@@ -109,6 +131,16 @@ data class PluginCommandEntry(val id: String, val title: String)
 data class PluginContentEntry(val id: String, val name: String, val search: Boolean)
 
 data class PluginMenuEntry(val commandId: String, val location: PluginMenuLocation)
+
+// frames 为空时由原生插件逐帧渲染；dim、paneOpacity 的含义与皮肤背景相同
+data class PluginBackdropEntry(
+    val id: String,
+    val name: String,
+    val fps: Int,
+    val dim: Float,
+    val paneOpacity: Float,
+    val frames: List<String> = emptyList()
+)
 
 data class PluginOption(val value: String, val label: String)
 
@@ -134,14 +166,17 @@ data class PluginContributions(
     val commands: List<PluginCommandEntry> = emptyList(),
     val menus: List<PluginMenuEntry> = emptyList(),
     val settings: List<PluginSettingField> = emptyList(),
-    val contentSources: List<PluginContentEntry> = emptyList()
+    val contentSources: List<PluginContentEntry> = emptyList(),
+    val backdrops: List<PluginBackdropEntry> = emptyList(),
+    // 播放器布局里用到 script: 动作
+    val layoutActions: Boolean = false
 ) {
     val needsScript: Boolean
         get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty() ||
-            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty()
+            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty() || layoutActions
 
     val isEmpty: Boolean
-        get() = playerLayouts.isEmpty() && !needsScript
+        get() = playerLayouts.isEmpty() && backdrops.isEmpty() && !needsScript
 
     val uiFiles: List<String>
         get() = (playerLayouts.values + pages.map { it.ui }).filterIsInstance<PluginUiRef.File>().map { it.path }
@@ -163,9 +198,14 @@ data class PluginManifest(
     val kind: PluginKind = PluginKind.SANDBOX,
     // 为空表示所有平台
     val platforms: Set<PluginPlatform> = emptySet(),
-    val apiVersion: String? = null
+    val apiVersion: String? = null,
+    // 原生插件入口类
+    val main: String? = null
 ) {
     val scriptFile: File? get() = directory?.let { File(it, PluginPaths.SCRIPT) }?.takeIf { it.isFile }
+
+    // 原生插件的动作直接注册在宿主里；沙盒插件要声明 layoutActions 才会运行脚本
+    val runsLayoutScripts: Boolean get() = kind == PluginKind.NATIVE || contributes.layoutActions
 
     fun file(path: String): File? = directory?.takeIf { PluginPaths.isAllowed(path) }?.let { File(it, path) }?.takeIf { it.isFile }
 }
@@ -176,6 +216,8 @@ object PluginPaths {
     const val SCRIPT = "main.js"
     const val UI_PREFIX = "ui/"
     const val ASSETS_PREFIX = "assets/"
+    const val JAR = "plugin.jar"
+    const val NATIVE_LIBRARY_PREFIX = "native/windows-x64/"
 
     private val FILE_NAME = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
     private val imageExtensions = setOf("png", "jpg", "jpeg", "webp")
@@ -184,7 +226,10 @@ object PluginPaths {
 
     fun isAsset(path: String): Boolean = inFolder(path, ASSETS_PREFIX) && extension(path) in imageExtensions
 
-    fun isAllowed(path: String): Boolean = path == MANIFEST || path == SCRIPT || isUi(path) || isAsset(path)
+    fun isNativeLibrary(path: String): Boolean = inFolder(path, NATIVE_LIBRARY_PREFIX) && extension(path) == "dll"
+
+    fun isAllowed(path: String): Boolean =
+        path == MANIFEST || path == SCRIPT || path == JAR || isUi(path) || isAsset(path) || isNativeLibrary(path)
 
     private fun inFolder(path: String, prefix: String): Boolean {
         if (!path.startsWith(prefix)) return false

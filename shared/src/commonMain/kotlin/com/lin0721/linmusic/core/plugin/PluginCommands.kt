@@ -9,12 +9,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -32,6 +34,20 @@ class PluginNotices {
     }
 }
 
+// 用户确认过的网页链接，各端用系统浏览器打开；界面重建期间没人收集时先存着，收集方回来再打开
+class PluginLinks {
+    private val _opens = Channel<String>(LINK_BUFFER, BufferOverflow.DROP_OLDEST)
+    val opens: Flow<String> = _opens.receiveAsFlow()
+
+    fun open(url: String) {
+        _opens.trySend(url)
+    }
+
+    private companion object {
+        const val LINK_BUFFER = 4
+    }
+}
+
 data class PluginCommandItem(val pluginId: String, val pluginName: String, val commandId: String, val title: String)
 
 // 菜单与按钮的入口：只显示脚本已注册的命令，执行不跟随调用方的生命周期
@@ -40,7 +56,8 @@ class PluginCommands(
     val notices: PluginNotices,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     val confirmations: PluginConfirmations = PluginConfirmations(),
-    val content: PluginContent = PluginContent(registry)
+    val content: PluginContent = PluginContent(registry),
+    val links: PluginLinks = PluginLinks()
 ) {
 
     fun items(location: PluginMenuLocation): Flow<List<PluginCommandItem>> =

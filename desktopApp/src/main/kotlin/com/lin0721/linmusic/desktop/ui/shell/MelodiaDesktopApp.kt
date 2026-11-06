@@ -58,6 +58,7 @@ import com.lin0721.linmusic.desktop.ui.share.ShareCardDialog
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.update.UpdateDialog
+import com.lin0721.linmusic.desktop.ui.update.openInBrowser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
@@ -144,13 +145,16 @@ fun WindowScope.MelodiaDesktopApp(
     val pluginCards = remember(deps) { PluginCardContext(deps.playerCards, deps.pluginPages, DesktopPluginPageUi) }
     CompositionLocalProvider(
         LocalDesktopNavigator provides navigator,
-        LocalPlayerLayouts provides pluginLayouts.roots,
+        LocalPlayerLayouts provides pluginLayouts.specs,
         LocalPluginCards provides pluginCards,
         LocalPluginCommands provides deps.pluginCommands
     ) {
         LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
         LaunchedEffect(deps) {
             deps.pluginCommands.content.opens.collect { state.navigate(DesktopRoute.Playlist(it.id, it.title)) }
+        }
+        LaunchedEffect(deps) {
+            deps.pluginCommands.links.opens.collect { if (!openInBrowser(it)) navigator.showMessage("无法打开浏览器") }
         }
         PluginConfirmDialog(deps.pluginCommands.confirmations)
         Box(

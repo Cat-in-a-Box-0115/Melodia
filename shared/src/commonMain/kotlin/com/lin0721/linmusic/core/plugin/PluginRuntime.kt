@@ -7,6 +7,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +30,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 private const val TAG = "PluginRuntime"
@@ -62,8 +65,9 @@ class PluginRuntime(
 
     // 让运行中的沙盒与可运行的已启用插件保持一致；只提供布局的插件不需要沙盒
     suspend fun sync(plugins: List<InstalledPlugin>) = lifecycleLock.withLock {
-        val targets = plugins.filter { it.state.enabled && it.canRun && it.manifest?.contributes?.needsScript == true }
-            .associateBy { it.id }
+        val targets = plugins.filter {
+            it.state.enabled && it.canRun && it.manifest?.kind == PluginKind.SANDBOX && it.manifest.contributes.needsScript
+        }.associateBy { it.id }
         running.keys.filter { it !in targets }.forEach { stopLocked(it) }
         _status.update { it.filterKeys { id -> id in targets } }
         for ((id, plugin) in targets) {
@@ -82,6 +86,10 @@ class PluginRuntime(
 
     fun isRunning(pluginId: String): Boolean = running.containsKey(pluginId)
 
+    suspend fun clearData(pluginId: String) = factory.clearData(sandboxName(pluginId))
+
+    private fun sandboxName(pluginId: String): String = "plugin-$pluginId"
+
     // 调用插件注册的能力；失败或超时返回 null 并计入连续出错
     suspend fun invoke(pluginId: String, kind: String, name: String, args: JsonElement, timeoutMs: Long): JsonElement? {
         val target = running[pluginId] ?: return null
@@ -90,10 +98,13 @@ class PluginRuntime(
         target.pending[callId] = deferred
         return try {
             val result = try {
-                target.sandbox.call(PluginPrelude.INVOKE, JsonPrimitive(callId), JsonPrimitive(kind), JsonPrimitive(name), args)
-                withTimeoutOrNull(timeoutMs) { deferred.await() }
-                    // 脚本在等网易调用时可能正等用户确认，不按超时处理
-                    ?: target.pendingNetease.get().takeIf { it > 0 }?.let { withTimeoutOrNull(NETEASE_TIMEOUT_MS) { deferred.await() } }
+                // 脚本线程卡住时投递本身也不返回，要算在超时里
+                withTimeoutOrNull(timeoutMs) {
+                    target.sandbox.call(PluginPrelude.INVOKE, JsonPrimitive(callId), JsonPrimitive(kind), JsonPrimitive(name), args)
+                    deferred.await()
+                }
+                    // 脚本在等网易调用或打开网页时可能正等用户确认，不按超时处理
+                    ?: target.pendingConfirmCalls.get().takeIf { it > 0 }?.let { withTimeoutOrNull(NETEASE_TIMEOUT_MS) { deferred.await() } }
                     ?: Result.failure(PluginCallException("$kind:$name 超过 ${timeoutMs / 1000} 秒没有返回"))
             } catch (e: CancellationException) {
                 throw e
@@ -110,15 +121,7 @@ class PluginRuntime(
     fun emit(pluginId: String, event: PluginEvent, data: JsonElement) {
         val target = running[pluginId] ?: return
         if (event !in target.manifest.contributes.events) return
-        scope.launch {
-            try {
-                target.sandbox.call(PluginPrelude.EMIT, JsonPrimitive(event.key), data)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "[$pluginId] 分发事件 ${event.key} 失败: ${e.message}")
-            }
-        }
+        target.enqueue(event, data)
     }
 
     private suspend fun startLocked(manifest: PluginManifest) {
@@ -135,7 +138,7 @@ class PluginRuntime(
         }
         val target = Running(manifest)
         val sandbox = try {
-            factory.create("plugin-${manifest.id}", target, PluginPrelude.script)
+            factory.create(sandboxName(manifest.id), target, PluginPrelude.script)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -190,7 +193,7 @@ class PluginRuntime(
             PluginPrelude.KIND_CONTENT_SOURCE -> {
                 val order = manifest.contributes.contentSources.indexOfFirst { it.id == name }
                 if (order < 0) return
-                val source = ScriptContentSource(manifest.id, name, manifest.contributes.contentSources[order].search)
+                val source = ScriptContentSource(manifest, name, manifest.contributes.contentSources[order].search)
                 registry.register(Extension(ExtensionPoints.CONTENT_SOURCE, manifest.id, manifest.name, name, source, order))
             }
             PluginPrelude.KIND_COMMAND -> {
@@ -203,10 +206,12 @@ class PluginRuntime(
     }
 
     private inner class ScriptContentSource(
-        private val pluginId: String,
+        private val manifest: PluginManifest,
         private val name: String,
         override val searchable: Boolean
     ) : ContentSourceExtension {
+        override fun cover(url: String): String = PluginBinding.cover(manifest, url)
+
         override suspend fun search(keyword: String, offset: Int, limit: Int): JsonElement? = call("search", buildJsonObject {
             put("keyword", keyword)
             put("offset", offset)
@@ -221,7 +226,7 @@ class PluginRuntime(
         })
 
         private suspend fun call(method: String, params: JsonObject): JsonElement? = invoke(
-            pluginId,
+            manifest.id,
             PluginPrelude.KIND_CONTENT_SOURCE,
             name,
             buildJsonObject {
@@ -280,7 +285,32 @@ class PluginRuntime(
         lateinit var sandbox: ScriptSandbox
         val pending = ConcurrentHashMap<Int, CompletableDeferred<Result<JsonElement>>>()
         private val consecutiveErrors = AtomicInteger(0)
-        val pendingNetease = AtomicInteger(0)
+        private val stalledEvents = AtomicInteger(0)
+        private val callsInFlight = AtomicInteger(0)
+        private val disabling = AtomicBoolean(false)
+        val pendingConfirmCalls = AtomicInteger(0)
+
+        // 事件按发生顺序逐个投递；脚本处理不过来时丢掉最旧的
+        private val events = Channel<Pair<PluginEvent, JsonElement>>(EVENT_QUEUE_SIZE, BufferOverflow.DROP_OLDEST)
+        private val eventPump = scope.launch { for ((event, data) in events) deliver(event, data) }
+
+        fun enqueue(event: PluginEvent, data: JsonElement) {
+            events.trySend(event to data)
+        }
+
+        private suspend fun deliver(event: PluginEvent, data: JsonElement) {
+            try {
+                val delivered = withTimeoutOrNull(EVENT_TIMEOUT_MS) {
+                    sandbox.call(PluginPrelude.EMIT, JsonPrimitive(event.key), data)
+                    true
+                }
+                recordEvent(delivered == true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "[${manifest.id}] 分发事件 ${event.key} 失败: ${e.message}")
+            }
+        }
 
         @Volatile
         private var closed = false
@@ -305,11 +335,16 @@ class PluginRuntime(
             val id = (data["id"] as? JsonPrimitive)?.intOrNull ?: return
             val method = (data["method"] as? JsonPrimitive)?.content ?: return
             val args = data["args"] ?: JsonNull
-            val isNetease = method == PluginHostApi.METHOD_NETEASE
-            if (isNetease) pendingNetease.incrementAndGet()
+            if (callsInFlight.incrementAndGet() > MAX_CALLS_IN_FLIGHT) {
+                callsInFlight.decrementAndGet()
+                disable("同时发起的调用超过 $MAX_CALLS_IN_FLIGHT 个，已自动停用")
+                return
+            }
+            val waitsForUser = method == PluginHostApi.METHOD_NETEASE || method == PluginHostApi.METHOD_OPEN_URL
+            if (waitsForUser) pendingConfirmCalls.incrementAndGet()
             scope.launch {
                 val (error, result) = try {
-                    val timeout = if (isNetease) NETEASE_TIMEOUT_MS else CALL_TIMEOUT_MS
+                    val timeout = if (waitsForUser) NETEASE_TIMEOUT_MS else CALL_TIMEOUT_MS
                     null to withTimeout(timeout) { api.handle(manifest, method, args) }
                 } catch (e: PluginCallException) {
                     e.message to JsonNull
@@ -321,7 +356,8 @@ class PluginRuntime(
                     AppLogger.w(TAG, "[${manifest.id}] 宿主调用 $method 异常", e)
                     "$method 执行失败" to JsonNull
                 } finally {
-                    if (isNetease) pendingNetease.decrementAndGet()
+                    callsInFlight.decrementAndGet()
+                    if (waitsForUser) pendingConfirmCalls.decrementAndGet()
                 }
                 if (closed) return@launch
                 try {
@@ -354,18 +390,40 @@ class PluginRuntime(
             consecutiveErrors.set(0)
         }
 
+        // 关闭时被中断的调用不算插件出错
         fun recordError(reason: String) {
+            if (closed) return
             setStatus(manifest.id) { it.copy(lastError = reason) }
-            if (consecutiveErrors.incrementAndGet() < MAX_CONSECUTIVE_ERRORS) return
+            if (consecutiveErrors.incrementAndGet() >= MAX_CONSECUTIVE_ERRORS) {
+                disable("连续出错 $MAX_CONSECUTIVE_ERRORS 次，已自动停用：$reason")
+            }
+        }
+
+        // 送达只说明脚本线程没卡住，不代表调用成功，所以不清零 consecutiveErrors
+        fun recordEvent(delivered: Boolean) {
+            if (delivered) {
+                stalledEvents.set(0)
+            } else if (!closed && stalledEvents.incrementAndGet() >= MAX_CONSECUTIVE_ERRORS) {
+                disable("脚本长时间没有响应，已自动停用")
+            }
+        }
+
+        // 只停用仍在运行的实例，已被新版本替换的实例不能影响新版本
+        private fun disable(reason: String) {
+            if (!disabling.compareAndSet(false, true)) return
             scope.launch {
-                lifecycleLock.withLock { if (running[manifest.id] === this@Running) stopLocked(manifest.id) }
-                fail(manifest.id, "连续出错 $MAX_CONSECUTIVE_ERRORS 次，已自动停用：$reason")
+                val stopped = lifecycleLock.withLock {
+                    (running[manifest.id] === this@Running).also { if (it) stopLocked(manifest.id) }
+                }
+                if (stopped) fail(manifest.id, reason)
             }
         }
 
         fun close() {
             if (closed) return
             closed = true
+            events.close()
+            eventPump.cancel()
             pending.values.forEach { it.complete(Result.failure(PluginCallException("插件已停止"))) }
             if (::sandbox.isInitialized) {
                 try {
@@ -380,9 +438,11 @@ class PluginRuntime(
     companion object {
         const val LOAD_TIMEOUT_MS = 8_000L
         const val CALL_TIMEOUT_MS = 30_000L
-        // 要留够用户确认的时间
+        // 网易调用与打开网页要留够用户确认的时间
         const val NETEASE_TIMEOUT_MS = 90_000L
         const val MAX_CONSECUTIVE_ERRORS = 5
+        const val MAX_CALLS_IN_FLIGHT = 512
+        private const val EVENT_QUEUE_SIZE = 32
 
         // 各类插件调用的上限
         const val SOURCE_TIMEOUT_MS = 8_000L

@@ -187,6 +187,74 @@ class PluginRuntimeTest {
     }
 
     @Test
+    fun `主脚本死循环时按超时停用，不卡住后续操作`() = runBlocking {
+        withTimeout(PluginRuntime.LOAD_TIMEOUT_MS + 5_000) {
+            install("while (true) {}")
+            waitFor { !store.state("com.example.demo").enabled }
+            repository.delete("com.example.demo")
+        }
+        assertTrue(repository.installed.value.isEmpty())
+    }
+
+    @Test
+    fun `回调死循环时调用按超时返回`() = runBlocking {
+        installV2(
+            "melodia.register.command('spin', function() { while (true) {} });",
+            "",
+            """"commands":[{"id":"spin","title":"转"}]"""
+        )
+        waitFor { repository.status.value["com.example.v2"]?.registrations?.contains("command:spin") == true }
+        val result = withTimeout(3_000) { runtime.invoke("com.example.v2", PluginPrelude.KIND_COMMAND, "spin", JsonNull, 200) }
+        assertNull(result)
+        assertTrue(repository.status.value["com.example.v2"]?.lastError.orEmpty().contains("没有返回"))
+    }
+
+    @Test
+    fun `同时发起过多调用时自动停用`() = runBlocking {
+        val api = PluginHostApi(
+            store = store,
+            http = {
+                delay(30_000)
+                PluginHttpResponse(200, emptyMap(), "")
+            },
+            mainDispatcher = Dispatchers.Unconfined
+        )
+        runtime = PluginRuntime(GraalScriptSandboxFactory(), api)
+        repository = PluginRepository(store, runtime, api)
+        install("for (var i = 0; i < ${PluginRuntime.MAX_CALLS_IN_FLIGHT + 50}; i++) melodia.http.request({ url: 'https://api.example.com/' });")
+        waitFor { !store.state("com.example.demo").enabled }
+        assertTrue(store.state("com.example.demo").disabledReason.orEmpty().contains("同时发起"))
+    }
+
+    @Test
+    fun `手动停用的插件升级后保持停用`() = runBlocking {
+        val script = "melodia.on('songChanged', function() {});"
+        install(script)
+        repository.setEnabled("com.example.demo", false)
+        install(script)
+        assertFalse(store.state("com.example.demo").enabled)
+    }
+
+    @Test
+    fun `已停止的实例不会停用插件`() = runBlocking {
+        installV2(
+            "melodia.register.command('wait', function() { return new Promise(function() {}); });",
+            "",
+            """"commands":[{"id":"wait","title":"等"}]"""
+        )
+        waitFor { repository.status.value["com.example.v2"]?.registrations?.contains("command:wait") == true }
+        val calls = List(PluginRuntime.MAX_CONSECUTIVE_ERRORS) {
+            async(Dispatchers.Default) { runtime.invoke("com.example.v2", PluginPrelude.KIND_COMMAND, "wait", JsonNull, 5_000) }
+        }
+        delay(300)
+        runtime.stop("com.example.v2")
+        calls.forEach { assertNull(it.await()) }
+        delay(300)
+        assertTrue(store.state("com.example.v2").enabled)
+        assertNull(store.state("com.example.v2").disabledReason)
+    }
+
+    @Test
     fun `脚本等用户确认写入时不按命令超时处理`() = runBlocking {
         val backend = LikeOnlyBackend()
         val confirmations = PluginConfirmations()

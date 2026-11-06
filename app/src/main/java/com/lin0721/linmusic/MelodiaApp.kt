@@ -27,12 +27,14 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +53,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
@@ -64,7 +67,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
+import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
+import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -229,6 +234,9 @@ fun MelodiaApp() {
     }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
+    // 侧边栏未登录入口触发的登录，侧栏可从任意页面拉出，登录界面挂在全局层
+    var showSidebarLoginSheet by remember { mutableStateOf(false) }
+    var showSidebarWebLogin by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     val miniPlayerSuppressor = remember { MiniPlayerSuppressor() }
@@ -374,8 +382,14 @@ fun MelodiaApp() {
 
     // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
     val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
-    val isDrawerDraggable = userProfile != null &&
-        (sidebar.isOpen || (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked))
+    val isSidebarScrimVisible by remember(sidebar) { derivedStateOf { sidebar.progress > 0f } }
+    // 主页任意位置右滑拉出侧栏；横向列表滚到最左后的继续右滑由 homeHandoffConnection 接管
+    val isHomeSwipeEnabled = navigation.currentScreen == Screen.Home &&
+        !playerSheet.isOpen && !showCreateSheet && !showRecognition &&
+        !isLoginScreenVisible && !showSidebarWebLogin && !(usePanel && isPanelShown)
+    SideEffect { sidebar.isHomeHandoffEnabled = isHomeSwipeEnabled }
+    val isDrawerDraggable = sidebar.isOpen || isHomeSwipeEnabled ||
+        (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked)
 
     CompositionLocalProvider(
         LocalMelodiaWindowSizeClass provides windowSizeClass,
@@ -394,6 +408,8 @@ fun MelodiaApp() {
                         val down = event.changes.firstOrNull { it.changedToDown() }
                         if (down != null) {
                             sidebar.onPointerDown(down.position.x, edgeWidthPx)
+                        } else {
+                            event.changes.firstOrNull()?.let { sidebar.onRootPointerChange(it) }
                         }
                         if (event.changes.all { !it.pressed }) {
                             sidebar.onPointerUp()
@@ -401,6 +417,7 @@ fun MelodiaApp() {
                     }
                 }
             }
+            .nestedScroll(sidebar.homeHandoffConnection)
             .anchoredDraggable(
                 state = sidebar.draggableState,
                 orientation = Orientation.Horizontal,
@@ -409,35 +426,32 @@ fun MelodiaApp() {
             .skinBackdropRoot(MelodiaColors.Background)
     ) {
         // 1. 侧边栏层 (位于最底层或同步移动)
-        userProfile?.let { profile ->
-            Box(
-                modifier = Modifier
-                    .width(SidebarWidth)
-                    .fillMaxHeight()
-                    .graphicsLayer {
-                        translationX = sidebar.offsetX - sidebar.widthPx
-                        alpha = 0.5f + (0.5f * sidebar.progress)
-                    }
-            ) {
-                ProfileSidebar(
-                    userProfile = profile,
-                    onLogout = {
-                        viewModel.logout()
-                        sidebar.close()
-                    },
-                    onDismiss = { sidebar.close() },
-                    onNavigateToProfile = { uid ->
-                        sidebar.close()
-                        navigation.openProfile(uid)
-                    },
-                    onNavigateToRecentPlay = { navigation.openRecentPlay() },
-                    onNavigateToListenData = { navigation.openListenData() },
-                    onNavigateToCloud = { navigation.openCloud() },
-                    onNavigateToDownloads = { navigation.openDownloads() },
-                    onNavigateToMessage = { navigation.openMessage() },
-                    onNavigateToSettings = { navigation.navigateTo(Screen.Settings) }
-                )
-            }
+        Box(
+            modifier = Modifier
+                .width(SidebarWidth)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    translationX = sidebar.offsetX - sidebar.widthPx
+                    alpha = 0.5f + (0.5f * sidebar.progress)
+                }
+        ) {
+            ProfileSidebar(
+                userProfile = userProfile,
+                onLogin = { showSidebarLoginSheet = true },
+                onLogout = {
+                    viewModel.logout()
+                    sidebar.close()
+                },
+                onDismiss = { sidebar.close() },
+                // 先收起侧栏再跳转，侧栏动画与页面切换动画叠加会明显掉帧
+                onNavigateToProfile = { uid -> sidebar.closeThen { navigation.openProfile(uid) } },
+                onNavigateToRecentPlay = { sidebar.closeThen { navigation.openRecentPlay() } },
+                onNavigateToListenData = { sidebar.closeThen { navigation.openListenData() } },
+                onNavigateToCloud = { sidebar.closeThen { navigation.openCloud() } },
+                onNavigateToDownloads = { sidebar.closeThen { navigation.openDownloads() } },
+                onNavigateToMessage = { sidebar.closeThen { navigation.openMessage() } },
+                onNavigateToSettings = { sidebar.closeThen { navigation.navigateTo(Screen.Settings) } }
+            )
         }
 
         // 2. 主页面内容层
@@ -532,7 +546,7 @@ fun MelodiaApp() {
                             modifier = Modifier.align(Alignment.BottomCenter),
                             currentScreen = navigation.currentScreen,
                             showCreateSheet = showCreateSheet,
-                            isLoginScreenVisible = isLoginScreenVisible,
+                            isLoginScreenVisible = isLoginScreenVisible || showSidebarWebLogin,
                             isMiniPlayerHidden = miniPlayerSuppressor.requestCount > 0,
                             isPanelDocked = isPanelDocked,
                             currentTrack = currentTrack,
@@ -577,12 +591,13 @@ fun MelodiaApp() {
                             onOverlayHeightChanged = { bottomOverlayHeight = it }
                         )
 
-                        // 侧边栏打开时的遮罩与点击收起事件
-                        if (sidebar.progress > 0f) {
+                        // 侧边栏打开时的遮罩与点击收起事件；进度只在绘制阶段读取，动画期间不触发重组
+                        if (isSidebarScrimVisible) {
+                            val scrimColor = MelodiaColors.Scrim
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f * sidebar.progress))
+                                    .drawBehind { drawRect(scrimColor.copy(alpha = 0.4f * sidebar.progress)) }
                                     .pressable(
                                         style = MelodiaPress.None,
                                         enabled = sidebar.isOpen,
@@ -782,6 +797,34 @@ fun MelodiaApp() {
                         likeMode = miniPlayerLikeMode,
                         modifier = modifier
                     )
+                }
+            )
+        }
+
+        if (showSidebarLoginSheet) {
+            LoginBottomSheet(
+                onDismiss = { showSidebarLoginSheet = false },
+                onWebLogin = {
+                    showSidebarLoginSheet = false
+                    showSidebarWebLogin = true
+                },
+                onLoginSuccess = { cookies ->
+                    showSidebarLoginSheet = false
+                    viewModel.handleLoginSuccess(cookies)
+                }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showSidebarWebLogin,
+            enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
+        ) {
+            WebViewLoginScreen(
+                onClose = { showSidebarWebLogin = false },
+                onLoginSuccess = { cookies ->
+                    showSidebarWebLogin = false
+                    viewModel.handleLoginSuccess(cookies)
                 }
             )
         }
