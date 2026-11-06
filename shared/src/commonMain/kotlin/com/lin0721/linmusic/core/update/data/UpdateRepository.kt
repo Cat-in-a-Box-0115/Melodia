@@ -36,7 +36,7 @@ class UpdateRepository(private val api: GithubReleaseApi) {
     }
 
     companion object {
-        private const val GITHUB_OWNER = "rinchao0721"
+        private const val GITHUB_OWNER = "Cat-in-a-Box-0115"
         private const val GITHUB_REPO = "Melodia"
         const val REPOSITORY_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO"
         const val RELEASES_URL = "$REPOSITORY_URL/releases"

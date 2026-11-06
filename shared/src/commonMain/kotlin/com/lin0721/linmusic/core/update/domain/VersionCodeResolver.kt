@@ -8,7 +8,8 @@ object VersionCodeResolver {
     private const val RC_MAX = 48
 
     fun resolve(tagName: String): Int? {
-        val name = tagName.removePrefix("v")
+        // 移植版 tag 形如 port-v2.1.0+3-abcd1234，只取其中的上游版本号
+        val name = tagName.removePrefix("port-").removePrefix("v").substringBefore('+')
         val dashIndex = name.indexOf('-')
         val base = if (dashIndex >= 0) name.substring(0, dashIndex) else name
 

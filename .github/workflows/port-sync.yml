@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write
 
 concurrency:
   group: port-sync
@@ -37,7 +38,13 @@ jobs:
       upstream_tag: ${{ steps.plan.outputs.upstream_tag }}
       upstream_sha: ${{ steps.plan.outputs.upstream_sha }}
     steps:
-      - uses: actions/checkout@v4
+      # GitHub turns off scheduled workflows after 60 days without repository activity
+      - name: Keep the daily schedule enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/port-sync.yml/enable"
+
+      - uses: actions/checkout@v7
         with:
           ref: feat/macos-desktop
           fetch-depth: 0
@@ -78,21 +85,33 @@ jobs:
         run: |
           UPSTREAM_SHA=$(git rev-parse --short=8 "upstream/$UPSTREAM_BRANCH")
           PORT_SHA=$(git rev-parse --short=8 "origin/feat/macos-desktop")
-          UPSTREAM_TAG=$(git describe --tags --abbrev=0 --match 'v*.*.*' "upstream/$UPSTREAM_BRANCH")
+          # Stable tags are made on upstream's main, so they aren't reachable from dev; take the newest overall
+          UPSTREAM_TAG=$(git -c versionsort.suffix=- tag --sort=-v:refname --list 'v*.*.*' | head -1)
           AHEAD=$(git rev-list --count "$UPSTREAM_TAG..upstream/$UPSTREAM_BRANCH")
           VERSION=${UPSTREAM_TAG#v}
           TAG="port-${UPSTREAM_TAG}+${AHEAD}-${PORT_SHA}"
           SKIP=false
           # Rebuild until the release has every package, so a day without a Mac runner gets filled in later
           ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
-          if [ "$FORCE" != "true" ] && echo "$ASSETS" | grep -q '\.dmg$' && echo "$ASSETS" | grep -q '\.apk$'; then SKIP=true; fi
+          SKIP=$([ "$FORCE" != "true" ] && echo true || echo false)
+          for SUFFIX in '-android\.apk' '-macos-arm64\.dmg' '-windows-x64\.zip' '-windows-x64-setup\.exe'; do
+            echo "$ASSETS" | grep -q "$SUFFIX\$" || SKIP=false
+          done
+          # The macOS job may fail without failing the run, so report when packages stop arriving
+          LAST_DMG=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" --jq '[.[] | select(any(.assets[]; .name | endswith(".dmg")))][0].published_at // empty')
+          if [ -z "$LAST_DMG" ] || [ "$(date -d "$LAST_DMG" +%s)" -lt "$(date -d '7 days ago' +%s)" ]; then
+            TITLE="macOS package missing for over a week"
+            if [ -z "$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')" ]; then
+              gh issue create --title "$TITLE" --body "The last release with a DMG was published at ${LAST_DMG:-unknown}. Check whether the macos job in Port sync & release is failing on a build error, or GitHub still has no Mac runners free: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/port-sync.yml"
+            fi
+          fi
           {
             echo "skip=$SKIP"; echo "tag=$TAG"; echo "version=$VERSION"
             echo "upstream_tag=$UPSTREAM_TAG+$AHEAD"; echo "upstream_sha=$UPSTREAM_SHA"
           } >> "$GITHUB_OUTPUT"
           echo "Release $TAG (skip=$SKIP)"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: source
           path: port.bundle
@@ -103,16 +122,16 @@ jobs:
     if: needs.sync.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: source
       - name: Check out replayed source
         run: git clone -q -b port port.bundle src
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Write signing key
         env:
           KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -125,15 +144,24 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
+          # Same formula as VersionCodeResolver, so the in-app update check compares like with like
+          V=${{ needs.sync.outputs.version }}
+          IFS=. read -r MAJOR MINOR PATCH <<< "${V%%-*}"
+          case "$V" in
+            *-beta.*) SUB=${V##*.} ;;
+            *-rc.*) SUB=$(( 50 + ${V##*.} )) ;;
+            *) SUB=99 ;;
+          esac
+          ./gradlew :shared:desktopTest --tests '*VersionCodeResolverTest*' --tests '*UpdateRepositoryTest*' --no-daemon
           ./gradlew :app:assembleRelease \
-            -PreleaseVersionName=${{ needs.sync.outputs.version }} \
-            -PreleaseVersionCode=$(( $(date +%s) / 60 )) \
+            -PreleaseVersionName="$V" \
+            -PreleaseVersionCode=$(( (MAJOR * 10000 + MINOR * 100 + PATCH) * 100 + SUB )) \
             -PreleaseApplicationId=com.lin0721.linmusic.port \
             --no-daemon
       # Missing signing secrets silently fall back to a debug key, which would break updates
       - name: Check signature
         run: |
-          APK=src/app/build/outputs/apk/release/Melodia-v${{ needs.sync.outputs.version }}-release.apk
+          APK=$(ls src/app/build/outputs/apk/release/*.apk | head -1)
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -1)/apksigner
           DN=$("$APKSIGNER" verify --print-certs "$APK" | grep -m1 'certificate DN')
           echo "$DN"
@@ -144,8 +172,8 @@ jobs:
       - name: Collect
         run: |
           mkdir dist
-          cp src/app/build/outputs/apk/release/Melodia-v${{ needs.sync.outputs.version }}-release.apk "dist/Melodia-${{ needs.sync.outputs.tag }}-android.apk"
-      - uses: actions/upload-artifact@v4
+          cp src/app/build/outputs/apk/release/*.apk "dist/Melodia-${{ needs.sync.outputs.tag }}-android.apk"
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: dist/*
@@ -158,16 +186,16 @@ jobs:
     # GitHub often has no Mac runner free; that must not block the other packages
     continue-on-error: true
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: source
       - name: Check out replayed source
         run: git clone -q -b port port.bundle src
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Install libmpv
         run: brew install mpv dylibbundler
       - name: Build DMG
@@ -177,7 +205,7 @@ jobs:
         run: |
           mkdir dist
           cp src/desktopApp/build/compose/binaries/main-release/dmg/*.dmg "dist/Melodia-${{ needs.sync.outputs.tag }}-macos-arm64.dmg"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: dist/*
@@ -191,16 +219,16 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: source
       - name: Check out replayed source
         run: git clone -q -b port port.bundle src
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build installer and zip
         working-directory: src
         run: |
@@ -213,7 +241,7 @@ jobs:
           mkdir dist
           cp "$OUT"/zip/*.zip "dist/Melodia-${{ needs.sync.outputs.tag }}-windows-x64.zip"
           cp "$OUT"/setup/*.exe "dist/Melodia-${{ needs.sync.outputs.tag }}-windows-x64-setup.exe"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/*
@@ -221,10 +249,10 @@ jobs:
 
   release:
     needs: [sync, android, macos, windows]
-    if: always() && needs.sync.result == 'success' && needs.sync.outputs.skip != 'true' && needs.android.result == 'success' && needs.windows.result == 'success'
+    if: always() && needs.sync.result == 'success' && needs.sync.outputs.skip != 'true' && (needs.android.result == 'success' || needs.windows.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: '{android,macos,windows}'
@@ -244,12 +272,12 @@ jobs:
           **macOS:** if the DMG is missing, GitHub had no Mac runner free; a later run adds it. The app isn't notarized. After copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/Melodia.app\` once if macOS says it's damaged or can't be opened.
           **Windows:** unsigned; on a SmartScreen prompt choose More info › Run anyway.
           EOF
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.sync.outputs.tag }}
           name: Melodia port ${{ needs.sync.outputs.upstream_tag }}
           target_commitish: feat/macos-desktop
           body_path: notes.md
-          prerelease: true
-          make_latest: true
+          prerelease: ${{ contains(needs.sync.outputs.version, '-') }}
+          make_latest: ${{ !contains(needs.sync.outputs.version, '-') }}
           files: dist/*
