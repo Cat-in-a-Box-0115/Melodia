@@ -5,7 +5,8 @@ name: Port sync & release
 # 上游变化与本分支冲突时开 issue 等人工合并，不发布。
 on:
   schedule:
-    - cron: '30 3 * * *'
+    # Twice a month (1st and 15th); run it by hand from the Actions tab for anything sooner
+    - cron: '30 3 1,15 * *'
   push:
     branches: [feat/macos-desktop]
   workflow_dispatch:
@@ -39,7 +40,7 @@ jobs:
       upstream_sha: ${{ steps.plan.outputs.upstream_sha }}
     steps:
       # GitHub turns off scheduled workflows after 60 days without repository activity
-      - name: Keep the daily schedule enabled
+      - name: Keep the scheduled sync enabled
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/port-sync.yml/enable"
@@ -99,8 +100,8 @@ jobs:
           done
           # The macOS job may fail without failing the run, so report when packages stop arriving
           LAST_DMG=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" --jq '[.[] | select(any(.assets[]; .name | endswith(".dmg")))][0].published_at // empty')
-          if [ -z "$LAST_DMG" ] || [ "$(date -d "$LAST_DMG" +%s)" -lt "$(date -d '7 days ago' +%s)" ]; then
-            TITLE="macOS package missing for over a week"
+          if [ -z "$LAST_DMG" ] || [ "$(date -d "$LAST_DMG" +%s)" -lt "$(date -d '35 days ago' +%s)" ]; then
+            TITLE="macOS package missing for over a month"
             if [ -z "$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')" ]; then
               gh issue create --title "$TITLE" --body "The last release with a DMG was published at ${LAST_DMG:-unknown}. Check whether the macos job in Port sync & release is failing on a build error, or GitHub still has no Mac runners free: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/port-sync.yml"
             fi
