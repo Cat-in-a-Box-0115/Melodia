@@ -66,6 +66,7 @@ import com.lin0721.linmusic.desktop.data.CloseAction
 import com.lin0721.linmusic.desktop.data.MiniLyricFontSize
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.data.local.LocalScanFilter
 import com.lin0721.linmusic.desktop.data.local.LocalScanState
@@ -143,6 +144,7 @@ private val ActionSpacing = Arrangement.spacedBy(8.dp)
 private const val CARD_LAYOUT_EXPAND_MS = 200
 
 private const val DESKTOP_LYRIC_GROUP = "桌面歌词"
+private const val LYRIC_FILTER_GROUP = "歌词过滤"
 private const val MINI_PLAYER_GROUP = "迷你播放器"
 private val DesktopLyricFontSizes = listOf(20, 24, 28, 32, 36, 40, 48)
 private val DesktopLyricBackgroundAlphas = listOf(0, 20, 40, 60, 80)
@@ -370,13 +372,17 @@ internal fun settingsEntries(
     lxPlugins: LxPluginSettingsViewModel,
     plugins: PluginRepository,
     updateChecker: UpdateChecker,
-    localLibrary: LocalLibraryRepository
+    localLibrary: LocalLibraryRepository,
+    downloadScanner: DesktopDownloadFolderScanner
 ): List<SettingsEntry> {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
 
     val quality by common.wifiQuality.collectAsState()
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
+    val searchDefaultKeywordEnabled by common.searchDefaultKeywordEnabled.collectAsState()
+    val hotSearchEnabled by common.hotSearchEnabled.collectAsState()
+    val lyricFilter by common.lyricFilterConfig.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
     val pluginBeforeOfficial by common.pluginBeforeOfficial.collectAsState()
@@ -401,6 +407,7 @@ internal fun settingsEntries(
     val themeSettings by common.themeSettings.collectAsState()
     val downloadFolder by common.downloadFolderUri.collectAsState()
     val downloadLyrics by common.downloadLyricsEnabled.collectAsState()
+    val downloadScanning by downloadScanner.scanning.collectAsState()
     val localData by localLibrary.data.collectAsState()
     val localScan by localLibrary.scanState.collectAsState()
     val defaultPlaylistPrivate by common.defaultPlaylistPrivate.collectAsState()
@@ -498,6 +505,24 @@ internal fun settingsEntries(
                 keywords = listOf("搜索", "酷狗", "酷我", "qq", "平台")
             ) {
                 SettingSwitch(searchAggregationEnabled, onChange = common::updateSearchAggregationEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "searchDefaultKeyword", SettingsCategory.Source, "搜索框推荐词",
+                subtitle = "搜索框为空时显示网易云推荐的关键词，关闭后显示固定提示",
+                keywords = listOf("搜索", "推荐", "关键词", "默认", "占位")
+            ) {
+                SettingSwitch(searchDefaultKeywordEnabled, onChange = common::updateSearchDefaultKeywordEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "hotSearch", SettingsCategory.Source, "热搜榜",
+                subtitle = "在发现页显示网易云热搜榜",
+                keywords = listOf("搜索", "热搜", "排行", "推荐")
+            ) {
+                SettingSwitch(hotSearchEnabled, onChange = common::updateHotSearchEnabled)
             }
         )
         add(
@@ -679,6 +704,30 @@ internal fun settingsEntries(
         )
         add(
             rowEntry(
+                "recognizeDownloads", SettingsCategory.Storage, "识别已下载歌曲",
+                subtitle = if (downloadScanning) "正在扫描…" else "扫描之前的下载目录，已有歌曲不再重复下载",
+                keywords = listOf("下载", "扫描", "本地", "重装", "已有文件", "重复下载"),
+                group = "下载"
+            ) {
+                SettingsActionButton("选择目录", enabled = !downloadScanning, onClick = {
+                    scope.launch {
+                        val initial = File(customDownloadFolder ?: desktop.defaultDownloadDir.absolutePath)
+                        val folder = chooseDirectory(initial, "选择要扫描的下载目录") ?: return@launch
+                        downloadScanner.launchScan(folder) { count ->
+                            val message = when {
+                                count == null -> "无法读取该目录"
+                                count == 0 -> "该目录下没有找到音频文件"
+                                else -> "已扫描 $count 个音频文件，打开歌单或下载时会自动识别"
+                            }
+                            // 回调在 IO 线程，提示切回界面线程
+                            scope.launch { navigator.showMessage(message) }
+                        }
+                    }
+                })
+            }
+        )
+        add(
+            rowEntry(
                 "downloadLyrics", SettingsCategory.Storage, "内嵌歌词",
                 subtitle = "下载时把歌词写入音频文件的标签",
                 keywords = listOf("下载", "歌词", "标签", "tag"),
@@ -737,6 +786,49 @@ internal fun settingsEntries(
                 PluginSetting(plugins)
             }
         )
+        add(
+            rowEntry(
+                "lyricFilter", SettingsCategory.Interface, "歌词过滤",
+                subtitle = "去掉歌词开头和结尾的作词、作曲、版权声明等信息行，修改后从下一首歌生效",
+                keywords = listOf("歌词", "过滤", "屏蔽", "作词", "作曲", "版权", "正则", "关键词"),
+                group = LYRIC_FILTER_GROUP
+            ) {
+                var editing by remember { mutableStateOf(false) }
+                Row(horizontalArrangement = ActionSpacing, verticalAlignment = Alignment.CenterVertically) {
+                    SettingsActionButton("编辑规则", onClick = { editing = true })
+                    SettingSwitch(lyricFilter.enabled, onChange = common::updateLyricFilterEnabled)
+                }
+                if (editing) {
+                    LyricFilterDialog(
+                        rules = lyricFilter.rules,
+                        onSave = common::updateLyricFilterRules,
+                        onDismiss = { editing = false }
+                    )
+                }
+            }
+        )
+        if (lyricFilter.enabled) {
+            add(
+                rowEntry(
+                    "lyricFilterAmll", SettingsCategory.Interface, "过滤 AMLL 歌词",
+                    subtitle = "AMLL 歌词库要求不含作词、作曲等内容，一般无需开启",
+                    keywords = listOf("歌词", "过滤", "amll", "ttml"),
+                    group = LYRIC_FILTER_GROUP
+                ) {
+                    SettingSwitch(lyricFilter.filterAmll, onChange = common::updateLyricFilterAmll)
+                }
+            )
+            add(
+                rowEntry(
+                    "lyricFilterLocal", SettingsCategory.Interface, "过滤本地歌词",
+                    subtitle = "本地歌曲内嵌或同名文件中的歌词",
+                    keywords = listOf("歌词", "过滤", "本地"),
+                    group = LYRIC_FILTER_GROUP
+                ) {
+                    SettingSwitch(lyricFilter.filterLocal, onChange = common::updateLyricFilterLocal)
+                }
+            )
+        }
         add(
             rowEntry(
                 "desktopLyric", SettingsCategory.Interface, "显示桌面歌词",

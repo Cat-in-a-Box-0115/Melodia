@@ -59,6 +59,7 @@ import com.lin0721.linmusic.desktop.app.HeapTrim
 import com.lin0721.linmusic.desktop.app.RenderBackend
 import com.lin0721.linmusic.desktop.app.RenderSessionGuard
 import com.lin0721.linmusic.desktop.app.applyRenderBackend
+import com.lin0721.linmusic.desktop.app.confirmOpenGlFallback
 import com.lin0721.linmusic.desktop.app.scaledMinWindowSize
 import com.lin0721.linmusic.desktop.app.MacAppEvents
 import com.lin0721.linmusic.desktop.app.isMac
@@ -230,8 +231,10 @@ fun main(args: Array<String>) {
     val savedWindow = runBlocking { desktopPreferences.loadWindow() }
     applyRenderBackend(
         RenderSessionGuard.begin(
-            runCatching { runBlocking { desktopPreferences.renderBackend.first() } }.getOrDefault(RenderBackend.AUTO)
-        ) { fallback -> runCatching { runBlocking { desktopPreferences.saveRenderBackend(fallback) } } }
+            requested = runCatching { runBlocking { desktopPreferences.renderBackend.first() } }.getOrDefault(RenderBackend.AUTO),
+            confirmFallback = ::confirmOpenGlFallback,
+            persist = { fallback -> runCatching { runBlocking { desktopPreferences.saveRenderBackend(fallback) } } }
+        )
     )
     // 首帧即按已存缩放渲染，避免先以 100% 绘制再跳变
     val initialUiScalePercent = runCatching {
@@ -330,7 +333,7 @@ fun main(args: Array<String>) {
             mediaSession.shutdown()
             controller.release()
             singleInstance.close()
-            // 正常退出才算渲染后端验证通过，清掉标记，下次不会自动降级
+            // 关闭钩子也会清标记，这里提前清掉以防退出中途卡死被强杀
             RenderSessionGuard.end()
         }
         val exit: () -> Unit = {

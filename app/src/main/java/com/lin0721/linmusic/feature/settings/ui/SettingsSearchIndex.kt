@@ -30,6 +30,8 @@ object SettingsSearchIndex {
             entry(QUALITY_SOURCES, 0, "移动网络环境播放音质", "流量 蜂窝 码率"),
             entry(QUALITY_SOURCES, 1, "显示实际音质", "播放页 全屏"),
             entry(QUALITY_SOURCES, 2, "多平台聚合搜索", "酷狗 酷我 QQ 音乐"),
+            entry(QUALITY_SOURCES, 2, "搜索框推荐词", "搜索 推荐 关键词 默认"),
+            entry(QUALITY_SOURCES, 2, "热搜榜", "搜索 热搜 排行"),
             entry(QUALITY_SOURCES, 2, "无版权/VIP 自动换源", "试听 灰色 解灰 换源"),
             entry(QUALITY_SOURCES, 2, "社区源优先", "LX unm"),
             entry(QUALITY_SOURCES, 2, "插件优先于官方音源", "优先 官方"),
@@ -38,6 +40,7 @@ object SettingsSearchIndex {
 
             entry(DOWNLOAD_STORAGE, 0, "边听边存", "缓存 在线播放 保存"),
             entry(DOWNLOAD_STORAGE, 0, "下载目录", "保存位置 文件夹 恢复默认"),
+            entry(DOWNLOAD_STORAGE, 0, "识别已下载歌曲", "扫描 本地 重装 已有文件 重复下载"),
             entry(DOWNLOAD_STORAGE, 0, "内嵌歌词", "歌词 写入 音频文件"),
             entry(DOWNLOAD_STORAGE, 1, "清理缓存", "存储 空间 音频缓存 图片缓存 日志 临时文件 更新安装包 最大缓存"),
 
@@ -55,6 +58,10 @@ object SettingsSearchIndex {
             entry(LYRICS, 2, "车载蓝牙歌词", "蓝牙 标题栏"),
             entry(LYRICS, 2, "Lyricon 词幕投屏", "词幕"),
             entry(LYRICS, 2, "状态栏歌词胶囊", "流体云 now bar 实时更新通知"),
+            entry(LYRICS, 3, "启用歌词过滤", "屏蔽 作词 作曲 版权 正则 关键词"),
+            entry(LYRICS, 3, "编辑过滤规则", "导入 导出 恢复默认"),
+            entry(LYRICS, 3, "过滤 AMLL 歌词", "ttml"),
+            entry(LYRICS, 3, "过滤本地歌词", "本地"),
 
             entry(APPEARANCE, 0, "主题与深浅色", "深色 浅色 跟随系统 主色 动态色 莫奈"),
             entry(APPEARANCE, 0, "皮肤", "主题包 换肤"),
