@@ -1,8 +1,8 @@
 name: Port sync & release
 
-# 每天把本分支（macOS 适配、侧栏隐藏、英文界面）的提交重放到上游 dev 最新代码上，
-# 打 Android、macOS 与 Windows 安装包并发布 Release。分支本身不被改写：重放只发生在 CI 工作区里，
-# 上游变化与本分支冲突时开 issue 等人工合并，不发布。
+# 每天把上游 dev 最新代码合并进本分支（macOS 适配、侧栏隐藏、英文界面），
+# 打 Android、macOS 与 Windows 安装包并发布 Release。分支本身不被改写：合并只发生在 CI 工作区里，
+# 上游变化与本分支冲突时开 issue 等人工合并，不发布。人工合并后推送即可，无需改写历史。
 on:
   schedule:
     - cron: '30 3 * * *'
@@ -49,8 +49,10 @@ jobs:
           ref: feat/macos-desktop
           fetch-depth: 0
 
-      - name: Replay port commits onto upstream
-        id: rebase
+      # Merge rather than rebase: a rebase replays the original port commits, so a conflict
+      # resolved once on the branch would come back every day; a merge reuses the resolution.
+      - name: Merge upstream into the port
+        id: merge
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -58,19 +60,23 @@ jobs:
           git config user.email "port-sync@users.noreply.github.com"
           git remote add upstream "$UPSTREAM_REPO"
           git fetch --tags upstream "$UPSTREAM_BRANCH"
-          if ! git rebase "upstream/$UPSTREAM_BRANCH"; then
+          if ! git merge --no-edit "upstream/$UPSTREAM_BRANCH"; then
             CONFLICTS=$(git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/')
-            STOPPED=$(git log -1 --format='%h %s' REBASE_HEAD 2>/dev/null || echo unknown)
-            git rebase --abort
+            STOPPED="$(git log -1 --format='%h %s' "upstream/$UPSTREAM_BRANCH")"
+            git merge --abort
             TITLE="Upstream sync needs a manual merge"
-            BODY=$(printf 'Replaying the port onto `%s` (%s) stopped at:\n\n`%s`\n\nConflicting files:\n%s\n\nRun locally:\n```\ngit fetch upstream && git rebase upstream/%s\n```\nResolve, then push `feat/macos-desktop`. Run: %s' \
+            BODY=$(printf 'Merging upstream `%s` (%s) into the port conflicts. Upstream head:\n\n`%s`\n\nConflicting files:\n%s\n\nRun locally on `feat/macos-desktop`:\n```\ngit fetch upstream && git merge upstream/%s\n```\nResolve, commit, then push `feat/macos-desktop` (a normal push, no force). Run: %s' \
               "$UPSTREAM_BRANCH" "$(git rev-parse --short "upstream/$UPSTREAM_BRANCH")" "$STOPPED" "$CONFLICTS" "$UPSTREAM_BRANCH" \
               "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
-            EXISTING=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+            echo "::error title=$TITLE::Upstream $STOPPED; conflicts: $(echo $CONFLICTS | tr -d '`')"
+            # gh issue create (GraphQL createIssue) was refused for GITHUB_TOKEN here, so use the REST API.
+            # Reporting is best effort so the log above still names the conflict if it fails.
+            EXISTING=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+              --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty" || true)
             if [ -n "$EXISTING" ]; then
-              gh issue comment "$EXISTING" --body "$BODY"
+              gh api "repos/$GITHUB_REPOSITORY/issues/$EXISTING/comments" -f body="$BODY" > /dev/null || true
             else
-              gh issue create --title "$TITLE" --body "$BODY"
+              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$TITLE" -f body="$BODY" > /dev/null || true
             fi
             exit 1
           fi
@@ -101,8 +107,8 @@ jobs:
           LAST_DMG=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" --jq '[.[] | select(any(.assets[]; .name | endswith(".dmg")))][0].published_at // empty')
           if [ -z "$LAST_DMG" ] || [ "$(date -d "$LAST_DMG" +%s)" -lt "$(date -d '7 days ago' +%s)" ]; then
             TITLE="macOS package missing for over a week"
-            if [ -z "$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')" ]; then
-              gh issue create --title "$TITLE" --body "The last release with a DMG was published at ${LAST_DMG:-unknown}. Check whether the macos job in Port sync & release is failing on a build error, or GitHub still has no Mac runners free: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/port-sync.yml"
+            if [ -z "$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty" || true)" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$TITLE" -f body="The last release with a DMG was published at ${LAST_DMG:-unknown}. Check whether the macos job in Port sync & release is failing on a build error, or GitHub still has no Mac runners free: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/port-sync.yml" > /dev/null || true
             fi
           fi
           {
@@ -265,8 +271,7 @@ jobs:
           - Native macOS (Apple Silicon) support: system traffic lights, Dock menu with playback controls, Melodia › Settings… (⌘,)
           - Fully hideable side panels with edge tabs that appear when the pointer nears the window edge
           - English UI: Settings › System › 语言 / Language (restart to apply)
-
-          - Android: fixes FLAC songs playing at double speed with noise on Samsung phones
+          - Android: a setting for whether Previous restarts the current song first
 
           **Android:** installs as a separate app next to the official Melodia. Updates install over the previous port build.
           **macOS:** if the DMG is missing, GitHub had no Mac runner free; a later run adds it. The app isn't notarized. After copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/Melodia.app\` once if macOS says it's damaged or can't be opened.
